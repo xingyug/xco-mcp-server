@@ -35,6 +35,8 @@ npm install
 
 Node `>=22` is required.
 
+If you are bringing up a brand-new MCP instance from zero, start with [docs/QUICKSTART.md](docs/QUICKSTART.md).
+
 ## Setup A Version
 
 Download and activate a version from the official docs:
@@ -66,6 +68,8 @@ This stores downloaded specs under `.xco/versions/<version>/`.
 
 For official docs, patch releases automatically map to the corresponding `x.y.0` docs set. For example, `3.7.1` uses `3.7.0` docs and `3.8.7` uses `3.8.0` docs.
 
+For the first end-to-end bootstrap on a new MCP instance, including auth, bastion, readonly, and launch steps, use [docs/QUICKSTART.md](docs/QUICKSTART.md).
+
 Switch to an already downloaded version:
 
 ```bash
@@ -84,38 +88,7 @@ Discover remote versions from the docs site:
 node ./src/cli.js versions --remote
 ```
 
-Persist readonly mode and bastion access during activation:
-
-```bash
-node ./src/cli.js use-version \
-  --version 3.7.0 \
-  --base-url https://xco.company.example \
-  --readonly true \
-  --bastion-jumps ops@jump1,ops@jump2 \
-  --bastion-target-host 10.20.30.40
-```
-
-If your bastion only supports username + password, password auth is available as an explicit opt-in. The runtime uses a non-interactive `SSH_ASKPASS` helper, and the recommended pattern is to pass the password through an environment variable:
-
-```bash
-export XCO_BASTION_PASSWORD='secret'
-node ./src/cli.js use-version \
-  --version 3.7.0 \
-  --bastion-jumps ops@jump1,ops@jump2 \
-  --bastion-password-auth true \
-  --bastion-password-env XCO_BASTION_PASSWORD \
-  --bastion-target-host 10.20.30.40
-```
-
-Plaintext bastion passwords are not persisted to config. Only the env var name can be persisted.
-
-Set up username/password auth:
-
-```bash
-export XCO_USERNAME=admin
-export XCO_PASSWORD='secret'
-node ./src/cli.js auth login --base-url https://xco.company.example --username-env XCO_USERNAME --password-env XCO_PASSWORD --persist-config true
-```
+Detailed runtime guidance is collected in the documentation links near the end of this README.
 
 ## CLI Usage
 
@@ -134,7 +107,7 @@ node ./src/cli.js tools
 Call one generated tool:
 
 ```bash
-node ./src/cli.js call tenant_service__gettenants --json '{"search":{"fuzzy":"tenant"}}'
+node ./src/cli.js call tenant__gettenants --json '{}'
 ```
 
 Send a raw request:
@@ -179,7 +152,7 @@ Generated tools use the naming pattern:
 Example:
 
 ```text
-tenant_service__gettenants
+tenant__gettenants
 ```
 
 ## HTTP + SSE Usage
@@ -300,6 +273,7 @@ The script leaves JSON artifacts and recent mock logs in a temp directory and pr
 
 ## More Documentation
 
+- [Quickstart](docs/QUICKSTART.md)
 - [Deployment Guide](docs/DEPLOYMENT.md)
 - [Authentication Guide](docs/AUTH.md)
 - [Legal Notes](docs/LEGAL.md)

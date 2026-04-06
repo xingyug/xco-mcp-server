@@ -1,6 +1,7 @@
 # Agent Guide
 
 Instructions for AI agents and coding assistants working with this repository.
+This file is for repository contributors. For operator-facing bootstrap and runtime setup, start with [docs/QUICKSTART.md](docs/QUICKSTART.md).
 
 ## Project Overview
 
@@ -11,6 +12,10 @@ Zero-dependency Node.js (>=22) ESM project. Three entry points share the same ru
 | MCP stdio | `src/server.js` | JSON-RPC stdio for MCP-compatible agents |
 | CLI | `src/cli.js` | Direct command-line usage and skill wrappers |
 | HTTP + SSE | `src/http-server.js` | REST API with streaming progress events |
+
+For operator-facing setup, start with [docs/QUICKSTART.md](docs/QUICKSTART.md).
+Use [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for bastion, readonly, and runtime-mode details.
+Use [docs/AUTH.md](docs/AUTH.md) for token and username/password flows.
 
 ## Architecture
 
@@ -38,7 +43,7 @@ src/
 - **XcoRuntime** (`src/lib/runtime.js`): Central class that manages config, loaded operations, session cache, and SSH tunnels. Static `XcoRuntime.instances` Set tracks all instances for process-exit cleanup.
 - **META_TOOLS**: 8 built-in tools (`xco_setup_version`, `xco_use_version`, `xco_list_versions`, `xco_describe_bundle`, `xco_auth_login`, `xco_auth_status`, `xco_auth_logout`, `xco_raw_request`). Routing uses `META_TOOL_NAMES` Set.
 - **Generated tools**: Created from OpenAPI specs. Named `<service_slug>__<operation_id>` (e.g., `tenant__gettenants`).
-- **Config storage**: `~/.xco/config.json` for settings, `~/.xco/session.json` for auth tokens. Specs cached under `~/.xco/versions/<version>/`.
+- **Config storage**: `$XCO_HOME/config.json` for settings and `$XCO_HOME/session.json` for auth tokens. If `XCO_HOME` is unset, the default is `.xco/` under the current working directory. Specs are cached under `$XCO_HOME/versions/<version>/`.
 - **SSH tunnels**: Managed via `child_process.spawn` with `SSH_ASKPASS` helper scripts for password auth. Multi-hop supported via `ssh -J`.
 
 ## Build and Test
@@ -54,11 +59,13 @@ npm test
 node --test test/auth.test.js
 ```
 
-All 21 tests should pass. Tests use no external services — they mock HTTP via a local fixture server and use synthetic OpenAPI specs from `specs/`.
+`npm test` should pass. The unit tests live under `test/*.test.js` and use no external services. They rely on synthetic OpenAPI specs plus local downloader/runtime fixtures.
 
 ## E2E Testing
 
-The E2E test requires a Kubernetes cluster with SSH-accessible nodes:
+For a first-time operator bootstrap, use [docs/QUICKSTART.md](docs/QUICKSTART.md).
+
+The integration E2E test requires a Kubernetes cluster with SSH-accessible nodes:
 
 ```bash
 export KUBECONFIG=/path/to/kubeconfig
@@ -91,7 +98,7 @@ Tool generation logic is in `src/lib/openapi.js`:
 
 Config shape is defined in `src/lib/config.js`:
 - `loadConfig()` — merges file config, env vars, and overrides
-- `saveConfig()` — persists to `~/.xco/config.json` (never writes plaintext passwords)
+- `saveConfig()` — persists to `$XCO_HOME/config.json` (default `.xco/config.json` under the current working directory, never writes plaintext passwords)
 
 ## Code Style
 
