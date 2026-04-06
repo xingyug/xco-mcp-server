@@ -12,7 +12,10 @@ function replacePathParameters(routePath, args, parameters) {
       throw new Error(`Missing required path parameter "${parameter.name}".`);
     }
 
-    output = output.replaceAll(`{${parameter.name}}`, encodeURIComponent(String(value)));
+    output = output.replaceAll(
+      `{${parameter.name}}`,
+      encodeURIComponent(String(value)),
+    );
   }
 
   return output;
@@ -40,11 +43,20 @@ function mergePath(basePath, leafPath) {
 
 function buildUrl(baseUrl, operation, args) {
   const url = new URL(baseUrl);
-  const pathWithParams = replacePathParameters(operation.path, args, operation.parameters);
-  url.pathname = mergePath(url.pathname, mergePath(operation.serverPathname, pathWithParams));
+  const pathWithParams = replacePathParameters(
+    operation.path,
+    args,
+    operation.parameters,
+  );
+  url.pathname = mergePath(
+    url.pathname,
+    mergePath(operation.serverPathname, pathWithParams),
+  );
 
   const searchParams = new URLSearchParams(url.search);
-  for (const parameter of operation.parameters.filter((item) => item?.in === "query")) {
+  for (const parameter of operation.parameters.filter(
+    (item) => item?.in === "query",
+  )) {
     encodeQueryValue(searchParams, parameter.name, args[parameter.name]);
   }
 
@@ -70,7 +82,10 @@ function buildBody(operation, args) {
     return null;
   }
 
-  if (!operation.requestContentType || operation.requestContentType.includes("json")) {
+  if (
+    !operation.requestContentType ||
+    operation.requestContentType.includes("json")
+  ) {
     return JSON.stringify(args.body);
   }
 
@@ -81,7 +96,13 @@ function buildBody(operation, args) {
   return JSON.stringify(args.body);
 }
 
-export async function executeOperation(config, token, operation, args = {}, options = {}) {
+export async function executeOperation(
+  config,
+  token,
+  operation,
+  args = {},
+  options = {},
+) {
   const baseUrl = options.baseUrl ?? config.baseUrl;
   if (!baseUrl) {
     throw new Error(
@@ -131,7 +152,10 @@ export async function executeRawRequest(config, token, input = {}) {
   }
 
   const url = new URL(baseUrl);
-  url.pathname = mergePath(url.pathname, mergePath(input.servicePrefix ?? "", input.path ?? ""));
+  url.pathname = mergePath(
+    url.pathname,
+    mergePath(input.servicePrefix ?? "", input.path ?? ""),
+  );
   for (const [key, value] of Object.entries(input.query ?? {})) {
     encodeQueryValue(url.searchParams, key, value);
   }

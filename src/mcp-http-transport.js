@@ -178,8 +178,7 @@ export function createMcpHttpHandler(runtime) {
 
     for (const msg of messages) {
       const isRequest = msg.id !== undefined && msg.method !== undefined;
-      const isNotification =
-        msg.method !== undefined && msg.id === undefined;
+      const isNotification = msg.method !== undefined && msg.id === undefined;
 
       if (isNotification) {
         if (msg.method === "initialized") {
@@ -272,8 +271,7 @@ export function createMcpHttpHandler(runtime) {
       res.writeHead(204, {
         ...CORS_HEADERS,
         "access-control-allow-methods": "GET, POST, DELETE, OPTIONS",
-        "access-control-allow-headers":
-          "content-type, accept, mcp-session-id",
+        "access-control-allow-headers": "content-type, accept, mcp-session-id",
       });
       res.end();
       return;

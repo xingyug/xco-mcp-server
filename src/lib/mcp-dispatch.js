@@ -28,7 +28,10 @@ export function createMcpDispatch(runtime, protocolVersion) {
     }
 
     if (method === "tools/call") {
-      return await runtime.callToolForMcp(params?.name, params?.arguments ?? {});
+      return await runtime.callToolForMcp(
+        params?.name,
+        params?.arguments ?? {},
+      );
     }
 
     throw Object.assign(new Error(`Unsupported method "${method}"`), {

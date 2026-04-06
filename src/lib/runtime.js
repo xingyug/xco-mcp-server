@@ -8,7 +8,11 @@ import {
   resolveUsername,
   saveConfig,
 } from "./config.js";
-import { downloadVersionBundle, extractAvailableVersions, fetchText } from "./downloader.js";
+import {
+  downloadVersionBundle,
+  extractAvailableVersions,
+  fetchText,
+} from "./downloader.js";
 import {
   buildSessionKey,
   deleteSession,
@@ -39,43 +43,55 @@ const META_TOOLS = [
       type: "object",
       additionalProperties: false,
       properties: {
-        version: { type: "string", description: "XCO version to download, for example 3.7.0" },
+        version: {
+          type: "string",
+          description: "XCO version to download, for example 3.7.0",
+        },
         specSource: {
           type: "string",
-          description: "Spec source mode: official, instance, or auto. Auto tries instance docs first and falls back to official docs.",
+          description:
+            "Spec source mode: official, instance, or auto. Auto tries instance docs first and falls back to official docs.",
           enum: ["official", "instance", "auto"],
         },
         docsUrl: {
           type: "string",
-          description: "Optional instance docs landing page or direct Redoc/OpenAPI URL. If omitted in instance/auto mode, /docs/ is derived from baseUrl.",
+          description:
+            "Optional instance docs landing page or direct Redoc/OpenAPI URL. If omitted in instance/auto mode, /docs/ is derived from baseUrl.",
         },
         baseUrl: {
           type: "string",
-          description: "Optional XCO instance base URL to persist for subsequent calls.",
+          description:
+            "Optional XCO instance base URL to persist for subsequent calls.",
         },
         username: {
           type: "string",
-          description: "Optional XCO username to persist for password-based login.",
+          description:
+            "Optional XCO username to persist for password-based login.",
         },
         usernameEnv: {
           type: "string",
-          description: "Optional environment variable name to read the XCO username from.",
+          description:
+            "Optional environment variable name to read the XCO username from.",
         },
         passwordEnv: {
           type: "string",
-          description: "Optional environment variable name to read the XCO password from.",
+          description:
+            "Optional environment variable name to read the XCO password from.",
         },
         tokenEnv: {
           type: "string",
-          description: "Optional environment variable name to read a static bearer token from.",
+          description:
+            "Optional environment variable name to read a static bearer token from.",
         },
         readonly: {
           type: "boolean",
-          description: "When true, only read operations are exposed and write calls are blocked.",
+          description:
+            "When true, only read operations are exposed and write calls are blocked.",
         },
         bastionJumps: {
           type: "string",
-          description: "Comma-separated SSH bastion chain, for example user@jump1,user@jump2.",
+          description:
+            "Comma-separated SSH bastion chain, for example user@jump1,user@jump2.",
         },
         bastionIdentityFile: {
           type: "string",
@@ -83,35 +99,43 @@ const META_TOOLS = [
         },
         bastionPasswordAuth: {
           type: "boolean",
-          description: "Explicit opt-in for non-interactive bastion password auth. Not recommended unless key-based SSH is unavailable.",
+          description:
+            "Explicit opt-in for non-interactive bastion password auth. Not recommended unless key-based SSH is unavailable.",
         },
         bastionPassword: {
           type: "string",
-          description: "Optional one-time bastion password. It is not persisted to config.",
+          description:
+            "Optional one-time bastion password. It is not persisted to config.",
         },
         bastionPasswordEnv: {
           type: "string",
-          description: "Optional environment variable name to read the bastion password from.",
+          description:
+            "Optional environment variable name to read the bastion password from.",
         },
         bastionTargetHost: {
           type: "string",
-          description: "Optional XCO host override reachable from the bastion chain.",
+          description:
+            "Optional XCO host override reachable from the bastion chain.",
         },
         bastionTargetPort: {
           type: "integer",
-          description: "Optional XCO port override reachable from the bastion chain.",
+          description:
+            "Optional XCO port override reachable from the bastion chain.",
         },
         bastionLocalPort: {
           type: "integer",
-          description: "Optional fixed local tunnel port. By default an ephemeral port is used.",
+          description:
+            "Optional fixed local tunnel port. By default an ephemeral port is used.",
         },
         bastionBindHost: {
           type: "string",
-          description: "Optional local bind host for the SSH tunnel. Defaults to 127.0.0.1.",
+          description:
+            "Optional local bind host for the SSH tunnel. Defaults to 127.0.0.1.",
         },
         bastionStrictHostKeyChecking: {
           type: "boolean",
-          description: "Optional SSH StrictHostKeyChecking setting for the bastion tunnel.",
+          description:
+            "Optional SSH StrictHostKeyChecking setting for the bastion tunnel.",
         },
         overwrite: {
           type: "boolean",
@@ -119,7 +143,8 @@ const META_TOOLS = [
         },
         activate: {
           type: "boolean",
-          description: "When true, switch the active bundle to this version after download.",
+          description:
+            "When true, switch the active bundle to this version after download.",
         },
       },
       required: ["version"],
@@ -128,45 +153,60 @@ const META_TOOLS = [
   {
     name: "xco_use_version",
     title: "Switch Active XCO Version",
-    description: "Switch the runtime to an already-downloaded XCO version bundle.",
+    description:
+      "Switch the runtime to an already-downloaded XCO version bundle.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
       properties: {
-        version: { type: "string", description: "Installed XCO version to activate." },
+        version: {
+          type: "string",
+          description: "Installed XCO version to activate.",
+        },
         specSource: {
           type: "string",
-          description: "Persisted spec source mode for future setup operations.",
+          description:
+            "Persisted spec source mode for future setup operations.",
           enum: ["official", "instance", "auto"],
         },
         docsUrl: {
           type: "string",
-          description: "Persisted instance docs landing page or direct Redoc/OpenAPI URL.",
+          description:
+            "Persisted instance docs landing page or direct Redoc/OpenAPI URL.",
         },
-        baseUrl: { type: "string", description: "Optional XCO instance base URL to persist." },
+        baseUrl: {
+          type: "string",
+          description: "Optional XCO instance base URL to persist.",
+        },
         username: {
           type: "string",
-          description: "Optional XCO username to persist for password-based login.",
+          description:
+            "Optional XCO username to persist for password-based login.",
         },
         usernameEnv: {
           type: "string",
-          description: "Optional environment variable name to read the XCO username from.",
+          description:
+            "Optional environment variable name to read the XCO username from.",
         },
         passwordEnv: {
           type: "string",
-          description: "Optional environment variable name to read the XCO password from.",
+          description:
+            "Optional environment variable name to read the XCO password from.",
         },
         tokenEnv: {
           type: "string",
-          description: "Optional environment variable name to read a static bearer token from.",
+          description:
+            "Optional environment variable name to read a static bearer token from.",
         },
         readonly: {
           type: "boolean",
-          description: "When true, only read operations are exposed and write calls are blocked.",
+          description:
+            "When true, only read operations are exposed and write calls are blocked.",
         },
         bastionJumps: {
           type: "string",
-          description: "Comma-separated SSH bastion chain, for example user@jump1,user@jump2.",
+          description:
+            "Comma-separated SSH bastion chain, for example user@jump1,user@jump2.",
         },
         bastionIdentityFile: {
           type: "string",
@@ -174,35 +214,43 @@ const META_TOOLS = [
         },
         bastionPasswordAuth: {
           type: "boolean",
-          description: "Explicit opt-in for non-interactive bastion password auth. Not recommended unless key-based SSH is unavailable.",
+          description:
+            "Explicit opt-in for non-interactive bastion password auth. Not recommended unless key-based SSH is unavailable.",
         },
         bastionPassword: {
           type: "string",
-          description: "Optional one-time bastion password. It is not persisted to config.",
+          description:
+            "Optional one-time bastion password. It is not persisted to config.",
         },
         bastionPasswordEnv: {
           type: "string",
-          description: "Optional environment variable name to read the bastion password from.",
+          description:
+            "Optional environment variable name to read the bastion password from.",
         },
         bastionTargetHost: {
           type: "string",
-          description: "Optional XCO host override reachable from the bastion chain.",
+          description:
+            "Optional XCO host override reachable from the bastion chain.",
         },
         bastionTargetPort: {
           type: "integer",
-          description: "Optional XCO port override reachable from the bastion chain.",
+          description:
+            "Optional XCO port override reachable from the bastion chain.",
         },
         bastionLocalPort: {
           type: "integer",
-          description: "Optional fixed local tunnel port. By default an ephemeral port is used.",
+          description:
+            "Optional fixed local tunnel port. By default an ephemeral port is used.",
         },
         bastionBindHost: {
           type: "string",
-          description: "Optional local bind host for the SSH tunnel. Defaults to 127.0.0.1.",
+          description:
+            "Optional local bind host for the SSH tunnel. Defaults to 127.0.0.1.",
         },
         bastionStrictHostKeyChecking: {
           type: "boolean",
-          description: "Optional SSH StrictHostKeyChecking setting for the bastion tunnel.",
+          description:
+            "Optional SSH StrictHostKeyChecking setting for the bastion tunnel.",
         },
       },
       required: ["version"],
@@ -211,14 +259,16 @@ const META_TOOLS = [
   {
     name: "xco_list_versions",
     title: "List Versions",
-    description: "List installed XCO versions and optionally discover versions listed on the official docs site.",
+    description:
+      "List installed XCO versions and optionally discover versions listed on the official docs site.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
       properties: {
         remote: {
           type: "boolean",
-          description: "When true, also scrape the official support docs to discover published versions.",
+          description:
+            "When true, also scrape the official support docs to discover published versions.",
         },
       },
     },
@@ -226,7 +276,8 @@ const META_TOOLS = [
   {
     name: "xco_describe_bundle",
     title: "Describe Active Bundle",
-    description: "Describe the currently active XCO bundle, loaded services, and generated tools.",
+    description:
+      "Describe the currently active XCO bundle, loaded services, and generated tools.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -236,7 +287,8 @@ const META_TOOLS = [
   {
     name: "xco_auth_login",
     title: "Login To XCO",
-    description: "Authenticate to XCO with username and password, cache the access token, and enable auto-refresh.",
+    description:
+      "Authenticate to XCO with username and password, cache the access token, and enable auto-refresh.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -263,7 +315,8 @@ const META_TOOLS = [
         },
         persistConfig: {
           type: "boolean",
-          description: "When true, persist baseUrl, username, usernameEnv, and passwordEnv into the local config.",
+          description:
+            "When true, persist baseUrl, username, usernameEnv, and passwordEnv into the local config.",
         },
       },
     },
@@ -271,7 +324,8 @@ const META_TOOLS = [
   {
     name: "xco_auth_status",
     title: "Auth Status",
-    description: "Show whether static tokens, username/password auth, and cached refreshable sessions are available.",
+    description:
+      "Show whether static tokens, username/password auth, and cached refreshable sessions are available.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -290,7 +344,8 @@ const META_TOOLS = [
   {
     name: "xco_auth_logout",
     title: "Logout From XCO",
-    description: "Clear the cached login session for the current base URL, version, and username.",
+    description:
+      "Clear the cached login session for the current base URL, version, and username.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -309,19 +364,34 @@ const META_TOOLS = [
   {
     name: "xco_raw_request",
     title: "Raw XCO Request",
-    description: "Send a raw HTTP request to the configured XCO instance without going through generated tools.",
+    description:
+      "Send a raw HTTP request to the configured XCO instance without going through generated tools.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
       properties: {
-        method: { type: "string", description: "HTTP method, for example GET or POST." },
+        method: {
+          type: "string",
+          description: "HTTP method, for example GET or POST.",
+        },
         servicePrefix: {
           type: "string",
           description: "Optional API prefix such as /v1/tenant.",
         },
-        path: { type: "string", description: "Relative API path such as /tenants." },
-        query: { type: "object", additionalProperties: true, description: "Query parameters object." },
-        body: { type: "object", additionalProperties: true, description: "JSON request body." },
+        path: {
+          type: "string",
+          description: "Relative API path such as /tenants.",
+        },
+        query: {
+          type: "object",
+          additionalProperties: true,
+          description: "Query parameters object.",
+        },
+        body: {
+          type: "object",
+          additionalProperties: true,
+          description: "JSON request body.",
+        },
         headers: {
           type: "object",
           additionalProperties: { type: "string" },
@@ -333,7 +403,8 @@ const META_TOOLS = [
         },
         authenticate: {
           type: "boolean",
-          description: "When true, attach a bearer token and auto-login if needed. Defaults to true except for login endpoints.",
+          description:
+            "When true, attach a bearer token and auto-login if needed. Defaults to true except for login endpoints.",
         },
       },
       required: ["method", "path"],
@@ -376,7 +447,9 @@ function extractErrorMessage(body, fallback = "Request failed.") {
   }
 
   if (Array.isArray(body.errors) && body.errors.length > 0) {
-    return body.errors.map((item) => item?.message ?? JSON.stringify(item)).join("; ");
+    return body.errors
+      .map((item) => item?.message ?? JSON.stringify(item))
+      .join("; ");
   }
 
   if (typeof body.code !== "undefined" || typeof body.message !== "undefined") {
@@ -397,8 +470,10 @@ function buildAuthConfigPatch(input = {}, config = {}) {
     tokenEnv: input.tokenEnv ?? config.tokenEnv,
     readonly: input.readonly ?? config.readonly,
     bastionJumps: input.bastionJumps ?? config.bastionJumps,
-    bastionIdentityFile: input.bastionIdentityFile ?? config.bastionIdentityFile,
-    bastionPasswordAuth: input.bastionPasswordAuth ?? config.bastionPasswordAuth,
+    bastionIdentityFile:
+      input.bastionIdentityFile ?? config.bastionIdentityFile,
+    bastionPasswordAuth:
+      input.bastionPasswordAuth ?? config.bastionPasswordAuth,
     bastionPasswordEnv: input.bastionPasswordEnv ?? config.bastionPasswordEnv,
     bastionTargetHost: input.bastionTargetHost ?? config.bastionTargetHost,
     bastionTargetPort: input.bastionTargetPort ?? config.bastionTargetPort,
@@ -508,18 +583,27 @@ export class XcoRuntime {
     const loaded = await loadOperations(this.config);
     this.specEntries = loaded.specEntries;
     this.operations = loaded.operations;
-    this.operationMap = new Map(this.operations.map((item) => [item.name, item]));
+    this.operationMap = new Map(
+      this.operations.map((item) => [item.name, item]),
+    );
     this.operationIdMap = new Map(
       this.operations
         .filter((item) => item.operation.operationId)
-        .map((item) => [`${item.operation.serviceSlug}:${item.operation.operationId}`, item]),
+        .map((item) => [
+          `${item.operation.serviceSlug}:${item.operation.operationId}`,
+          item,
+        ]),
     );
     return this;
   }
 
   getTools() {
     const generatedTools = this.operations
-      .filter((operation) => !this.config.readonly || READONLY_METHODS.has(operation.operation.method))
+      .filter(
+        (operation) =>
+          !this.config.readonly ||
+          READONLY_METHODS.has(operation.operation.method),
+      )
       .map((operation) => ({
         name: operation.name,
         title: operation.title,
@@ -527,10 +611,7 @@ export class XcoRuntime {
         inputSchema: operation.inputSchema,
       }));
 
-    return [
-      ...META_TOOLS,
-      ...generatedTools,
-    ];
+    return [...META_TOOLS, ...generatedTools];
   }
 
   async describeBundle() {
@@ -557,7 +638,10 @@ export class XcoRuntime {
         version: entry.version,
         specPath: entry.specPath,
         operationCount: Object.values(entry.spec.paths ?? {}).reduce(
-          (count, pathItem) => count + Object.keys(pathItem ?? {}).filter((k) => HTTP_METHODS.has(k)).length,
+          (count, pathItem) =>
+            count +
+            Object.keys(pathItem ?? {}).filter((k) => HTTP_METHODS.has(k))
+              .length,
           0,
         ),
       })),
@@ -578,9 +662,13 @@ export class XcoRuntime {
 
     const specSource = input.specSource ?? this.config.specSource ?? "official";
     const docsUrl =
-      specSource === "instance" || specSource === "auto" ? this.resolveDocsUrl(input) : input.docsUrl ?? this.config.docsUrl ?? null;
+      specSource === "instance" || specSource === "auto"
+        ? this.resolveDocsUrl(input)
+        : (input.docsUrl ?? this.config.docsUrl ?? null);
     const requestDocsUrl =
-      specSource === "instance" || specSource === "auto" ? await this.resolveRequestDocsUrl(input, options) : null;
+      specSource === "instance" || specSource === "auto"
+        ? await this.resolveRequestDocsUrl(input, options)
+        : null;
 
     const manifest = await downloadVersionBundle(version, {
       xcoHome: this.config.xcoHome,
@@ -592,7 +680,8 @@ export class XcoRuntime {
     });
 
     const nextConfig = await saveConfig(this.config, {
-      activeVersion: input.activate === false ? this.config.activeVersion : version,
+      activeVersion:
+        input.activate === false ? this.config.activeVersion : version,
       ...buildAuthConfigPatch(input, this.config),
     });
 
@@ -610,9 +699,16 @@ export class XcoRuntime {
       throw new Error("useVersion requires a version.");
     }
 
-    const manifestPath = path.join(this.config.xcoHome, "versions", input.version, "manifest.json");
+    const manifestPath = path.join(
+      this.config.xcoHome,
+      "versions",
+      input.version,
+      "manifest.json",
+    );
     if (!(await fileExists(manifestPath))) {
-      throw new Error(`XCO version ${input.version} is not installed. Run setup first.`);
+      throw new Error(
+        `XCO version ${input.version} is not installed. Run setup first.`,
+      );
     }
 
     this.config = await saveConfig(this.config, {
@@ -628,7 +724,10 @@ export class XcoRuntime {
   }
 
   getOperationById(serviceSlug, operationId) {
-    return this.operationIdMap.get(`${serviceSlug}:${operationId}`)?.operation ?? null;
+    return (
+      this.operationIdMap.get(`${serviceSlug}:${operationId}`)?.operation ??
+      null
+    );
   }
 
   getAuthOperation(operationId) {
@@ -643,7 +742,9 @@ export class XcoRuntime {
   }
 
   resolveBaseUrl(overrides = {}) {
-    return overrides.baseUrl ?? overrides._baseUrl ?? this.config.baseUrl ?? null;
+    return (
+      overrides.baseUrl ?? overrides._baseUrl ?? this.config.baseUrl ?? null
+    );
   }
 
   resolveDocsUrl(overrides = {}) {
@@ -654,7 +755,9 @@ export class XcoRuntime {
       } catch {
         const baseUrl = this.resolveBaseUrl(overrides);
         if (!baseUrl) {
-          throw new Error("docsUrl is relative but no XCO base URL is available to resolve it.");
+          throw new Error(
+            "docsUrl is relative but no XCO base URL is available to resolve it.",
+          );
         }
 
         return new URL(configuredDocsUrl, baseUrl).toString();
@@ -682,7 +785,11 @@ export class XcoRuntime {
     const settings = getTunnelSettings(this.config, overrides);
     const tunnelKey = buildTunnelKey(baseUrl, settings);
     const existing = this.tunnels.get(tunnelKey);
-    if (existing && !existing.child.killed && existing.child.exitCode === null) {
+    if (
+      existing &&
+      !existing.child.killed &&
+      existing.child.exitCode === null
+    ) {
       const url = new URL(baseUrl);
       url.hostname = existing.bindHost;
       url.port = String(existing.localPort);
@@ -743,14 +850,20 @@ export class XcoRuntime {
     }
 
     const method =
-      typeof operationOrMethod === "string" ? String(operationOrMethod).toUpperCase() : operationOrMethod.method;
+      typeof operationOrMethod === "string"
+        ? String(operationOrMethod).toUpperCase()
+        : operationOrMethod.method;
     if (READONLY_METHODS.has(method)) {
       return;
     }
 
     const pathLabel =
-      typeof operationOrMethod === "string" ? routePath : `${operationOrMethod.serverPathname}${operationOrMethod.path}`;
-    throw new Error(`Readonly mode is enabled. ${method} ${pathLabel} is blocked.`);
+      typeof operationOrMethod === "string"
+        ? routePath
+        : `${operationOrMethod.serverPathname}${operationOrMethod.path}`;
+    throw new Error(
+      `Readonly mode is enabled. ${method} ${pathLabel} is blocked.`,
+    );
   }
 
   async getSessionFor(baseUrl, username) {
@@ -791,7 +904,8 @@ export class XcoRuntime {
     if (!baseUrl || !username) {
       return {
         cleared: false,
-        reason: "No baseUrl/username combination is available to identify a cached session.",
+        reason:
+          "No baseUrl/username combination is available to identify a cached session.",
       };
     }
 
@@ -831,7 +945,9 @@ export class XcoRuntime {
   async loginWithPassword(input = {}, options = {}) {
     const logicalBaseUrl = this.resolveBaseUrl(input);
     if (!logicalBaseUrl) {
-      throw new Error("Missing XCO base URL. Set XCO_BASE_URL, configure it during setup, or pass baseUrl explicitly.");
+      throw new Error(
+        "Missing XCO base URL. Set XCO_BASE_URL, configure it during setup, or pass baseUrl explicitly.",
+      );
     }
     const baseUrl = await this.resolveRequestBaseUrl(input, options);
 
@@ -865,7 +981,9 @@ export class XcoRuntime {
     );
 
     if (!response.ok) {
-      throw new Error(`XCO login failed: ${response.status} ${extractErrorMessage(response.body, response.statusText)}`);
+      throw new Error(
+        `XCO login failed: ${response.status} ${extractErrorMessage(response.body, response.statusText)}`,
+      );
     }
 
     const accessToken = response.body?.["access-token"];
@@ -890,7 +1008,9 @@ export class XcoRuntime {
     const logicalBaseUrl = this.resolveBaseUrl(input);
     const baseUrl = await this.resolveRequestBaseUrl(input, options);
     const credentials = resolveCredentials(this.config, input);
-    const session = existingSession ?? (await this.getSessionFor(logicalBaseUrl, credentials.username));
+    const session =
+      existingSession ??
+      (await this.getSessionFor(logicalBaseUrl, credentials.username));
 
     if (!session?.refreshToken) {
       throw new Error("No cached refresh token is available.");
@@ -926,14 +1046,17 @@ export class XcoRuntime {
 
     const accessToken = response.body?.["access-token"];
     if (!accessToken) {
-      throw new Error("XCO refresh succeeded but no access-token was returned.");
+      throw new Error(
+        "XCO refresh succeeded but no access-token was returned.",
+      );
     }
 
     return await this.saveSession({
       ...session,
       tokenType: response.body?.["token-type"] ?? session.tokenType ?? "Bearer",
       accessToken,
-      refreshToken: response.body?.["refresh-token"] ?? session.refreshToken ?? null,
+      refreshToken:
+        response.body?.["refresh-token"] ?? session.refreshToken ?? null,
       accessTokenExpiresAt: getTokenExpiresAt(accessToken),
       message: response.body?.message ?? session.message ?? null,
       updatedAt: new Date().toISOString(),
@@ -943,13 +1066,19 @@ export class XcoRuntime {
   async ensureAuthSession(input = {}, options = {}) {
     const baseUrl = this.resolveBaseUrl(input);
     if (!baseUrl) {
-      throw new Error("Missing XCO base URL. Set XCO_BASE_URL, configure it during setup, or pass baseUrl explicitly.");
+      throw new Error(
+        "Missing XCO base URL. Set XCO_BASE_URL, configure it during setup, or pass baseUrl explicitly.",
+      );
     }
 
     const credentials = resolveCredentials(this.config, input);
     let session = await this.getSessionFor(baseUrl, credentials.username);
 
-    if (!options.forceRenew && session?.accessToken && !isExpired(session.accessTokenExpiresAt)) {
+    if (
+      !options.forceRenew &&
+      session?.accessToken &&
+      !isExpired(session.accessTokenExpiresAt)
+    ) {
       return session;
     }
 
@@ -1002,11 +1131,20 @@ export class XcoRuntime {
       token = resolveToken(this.config, input ?? {});
     }
 
-    const requestBaseUrl = await this.resolveRequestBaseUrl(input ?? {}, options);
-    let response = await executeOperation(this.config, token, entry.operation, input, {
-      baseUrl: requestBaseUrl,
-      onEvent: options.onEvent,
-    });
+    const requestBaseUrl = await this.resolveRequestBaseUrl(
+      input ?? {},
+      options,
+    );
+    let response = await executeOperation(
+      this.config,
+      token,
+      entry.operation,
+      input,
+      {
+        baseUrl: requestBaseUrl,
+        onEvent: options.onEvent,
+      },
+    );
 
     if (entry.operation.requiresAuth && response.status === 401 && retryable) {
       const session = await this.ensureAuthSession(input ?? {}, {
@@ -1014,10 +1152,16 @@ export class XcoRuntime {
         forceRenew: true,
       });
 
-      response = await executeOperation(this.config, session.accessToken, entry.operation, input, {
-        baseUrl: requestBaseUrl,
-        onEvent: options.onEvent,
-      });
+      response = await executeOperation(
+        this.config,
+        session.accessToken,
+        entry.operation,
+        input,
+        {
+          baseUrl: requestBaseUrl,
+          onEvent: options.onEvent,
+        },
+      );
     }
 
     return response;
@@ -1044,7 +1188,10 @@ export class XcoRuntime {
 
       const session = await this.loginWithPassword(input ?? {}, options);
       if (input?.persistConfig) {
-        this.config = await saveConfig(this.config, buildAuthConfigPatch(input, this.config));
+        this.config = await saveConfig(
+          this.config,
+          buildAuthConfigPatch(input, this.config),
+        );
       }
 
       return {
@@ -1076,7 +1223,8 @@ export class XcoRuntime {
 
     if (name === "xco_raw_request") {
       const fullPath = `${input?.servicePrefix ?? ""}${input?.path ?? ""}`;
-      const authenticate = input?.authenticate ?? !isImplicitAuthEndpoint("", fullPath);
+      const authenticate =
+        input?.authenticate ?? !isImplicitAuthEndpoint("", fullPath);
       this.enforceReadonly(input?.method ?? "GET", fullPath);
       let token = resolveToken(this.config, input ?? {});
       let retryable = false;
@@ -1087,7 +1235,10 @@ export class XcoRuntime {
         retryable = authState.retryable;
       }
 
-      const requestBaseUrl = await this.resolveRequestBaseUrl(input ?? {}, options);
+      const requestBaseUrl = await this.resolveRequestBaseUrl(
+        input ?? {},
+        options,
+      );
       let response = await executeRawRequest(this.config, token, {
         ...(input ?? {}),
         baseUrl: requestBaseUrl,

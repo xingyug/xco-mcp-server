@@ -7,12 +7,12 @@ This file is for repository contributors. For operator-facing bootstrap and runt
 
 Zero-dependency Node.js (>=22) ESM project. Four entry points share the same runtime:
 
-| Entry Point | File | Purpose |
-|---|---|---|
-| MCP stdio | `src/server.js` | JSON-RPC stdio for MCP-compatible agents (`2024-11-05`) |
-| MCP Streamable HTTP | `src/http-server.js` → `/mcp` | Remote MCP over HTTP (`2025-03-26`) |
-| CLI | `src/cli.js` | Direct command-line usage and skill wrappers |
-| HTTP + SSE | `src/http-server.js` | REST API with streaming progress events |
+| Entry Point         | File                          | Purpose                                                 |
+| ------------------- | ----------------------------- | ------------------------------------------------------- |
+| MCP stdio           | `src/server.js`               | JSON-RPC stdio for MCP-compatible agents (`2024-11-05`) |
+| MCP Streamable HTTP | `src/http-server.js` → `/mcp` | Remote MCP over HTTP (`2025-03-26`)                     |
+| CLI                 | `src/cli.js`                  | Direct command-line usage and skill wrappers            |
+| HTTP + SSE          | `src/http-server.js`          | REST API with streaming progress events                 |
 
 For operator-facing setup, start with [docs/QUICKSTART.md](docs/QUICKSTART.md).
 Use [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for bastion, readonly, and runtime-mode details.
@@ -93,6 +93,7 @@ This deploys `examples/mock-xco-k8s.yaml`, tests setup, auth, tool calls, and re
 ### Modifying OpenAPI tool generation
 
 Tool generation logic is in `src/lib/openapi.js`:
+
 - `buildToolsFromSpec()` — main entry point
 - `buildOperationTool()` — per-operation tool builder
 - `buildInputSchema()` — JSON Schema for tool arguments
@@ -100,6 +101,7 @@ Tool generation logic is in `src/lib/openapi.js`:
 ### Modifying config
 
 Config shape is defined in `src/lib/config.js`:
+
 - `loadConfig()` — merges file config, env vars, and overrides
 - `saveConfig()` — persists to `$XCO_HOME/config.json` (default `.xco/config.json` under the current working directory, never writes plaintext passwords)
 

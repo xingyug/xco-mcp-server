@@ -46,7 +46,10 @@ async function main() {
   const port = Number.parseInt(process.env.XCO_HTTP_PORT ?? "8787", 10);
 
   const server = http.createServer(async (req, res) => {
-    const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+    const url = new URL(
+      req.url ?? "/",
+      `http://${req.headers.host ?? "localhost"}`,
+    );
 
     // MCP Streamable HTTP transport — handles its own CORS and methods
     if (url.pathname === "/mcp") {
@@ -83,9 +86,13 @@ async function main() {
     }
 
     if (req.method === "GET" && url.pathname === "/v1/versions") {
-      sendJson(res, 200, await runtime.callMetaTool("xco_list_versions", {
-        remote: url.searchParams.get("remote") === "1",
-      }));
+      sendJson(
+        res,
+        200,
+        await runtime.callMetaTool("xco_list_versions", {
+          remote: url.searchParams.get("remote") === "1",
+        }),
+      );
       return;
     }
 
@@ -128,23 +135,40 @@ async function main() {
     }
 
     if (req.method === "GET" && url.pathname === "/v1/auth/status") {
-      sendJson(res, 200, await runtime.callMetaTool("xco_auth_status", {
-        baseUrl: url.searchParams.get("baseUrl") ?? undefined,
-        username: url.searchParams.get("username") ?? undefined,
-      }));
+      sendJson(
+        res,
+        200,
+        await runtime.callMetaTool("xco_auth_status", {
+          baseUrl: url.searchParams.get("baseUrl") ?? undefined,
+          username: url.searchParams.get("username") ?? undefined,
+        }),
+      );
       return;
     }
 
     if (
       req.method === "POST" &&
-      ["/v1/setup", "/v1/use-version", "/v1/call", "/v1/raw", "/v1/auth/login", "/v1/auth/logout"].includes(url.pathname)
+      [
+        "/v1/setup",
+        "/v1/use-version",
+        "/v1/call",
+        "/v1/raw",
+        "/v1/auth/login",
+        "/v1/auth/logout",
+      ].includes(url.pathname)
     ) {
       const jobId = crypto.randomUUID();
 
       try {
         const body = await readBody(req);
         const input = body.trim() ? parseJsonText(body, "request body") : {};
-        const emit = (event) => eventBus.emit({ jobId, ...event, type: event.phase ?? "info", at: new Date().toISOString() });
+        const emit = (event) =>
+          eventBus.emit({
+            jobId,
+            ...event,
+            type: event.phase ?? "info",
+            at: new Date().toISOString(),
+          });
 
         emit({
           phase: "request-start",
@@ -157,13 +181,21 @@ async function main() {
         } else if (url.pathname === "/v1/use-version") {
           result = await runtime.useVersion(input);
         } else if (url.pathname === "/v1/auth/login") {
-          result = await runtime.callMetaTool("xco_auth_login", input, { onEvent: emit });
+          result = await runtime.callMetaTool("xco_auth_login", input, {
+            onEvent: emit,
+          });
         } else if (url.pathname === "/v1/auth/logout") {
-          result = await runtime.callMetaTool("xco_auth_logout", input, { onEvent: emit });
+          result = await runtime.callMetaTool("xco_auth_logout", input, {
+            onEvent: emit,
+          });
         } else if (url.pathname === "/v1/call") {
-          result = await runtime.callTool(input.name, input.arguments ?? {}, { onEvent: emit });
+          result = await runtime.callTool(input.name, input.arguments ?? {}, {
+            onEvent: emit,
+          });
         } else {
-          result = await runtime.callMetaTool("xco_raw_request", input, { onEvent: emit });
+          result = await runtime.callMetaTool("xco_raw_request", input, {
+            onEvent: emit,
+          });
         }
 
         emit({
@@ -195,7 +227,9 @@ async function main() {
   });
 
   server.listen(port, host, () => {
-    process.stdout.write(`xco-http-server listening on http://${host}:${port}\n`);
+    process.stdout.write(
+      `xco-http-server listening on http://${host}:${port}\n`,
+    );
   });
 
   function shutdown() {

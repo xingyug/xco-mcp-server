@@ -15,8 +15,16 @@ test("runtime loads manual specs and generates tools", async () => {
   assert.equal(runtime.specEntries.length, 1);
   assert.equal(runtime.operations.length, 3);
   assert.ok(runtime.operationMap.has("tenant_service__gettenants"));
-  assert.equal(runtime.operationMap.get("tenant_service__gettenants").operation.requiresAuth, true);
-  assert.equal(runtime.operationMap.get("tenant_service__gethealth").operation.requiresAuth, false);
+  assert.equal(
+    runtime.operationMap.get("tenant_service__gettenants").operation
+      .requiresAuth,
+    true,
+  );
+  assert.equal(
+    runtime.operationMap.get("tenant_service__gethealth").operation
+      .requiresAuth,
+    false,
+  );
 
   const tools = runtime.getTools();
   assert.ok(tools.find((tool) => tool.name === "xco_setup_version"));
@@ -36,7 +44,10 @@ test("runtime readonly mode only exposes read operations and blocks writes", asy
 
   const tools = runtime.getTools();
   assert.ok(tools.find((tool) => tool.name === "tenant_service__gettenants"));
-  assert.equal(tools.find((tool) => tool.name === "tenant_service__createtenant"), undefined);
+  assert.equal(
+    tools.find((tool) => tool.name === "tenant_service__createtenant"),
+    undefined,
+  );
 
   await assert.rejects(
     runtime.callTool("tenant_service__createtenant", {

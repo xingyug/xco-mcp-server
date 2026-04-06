@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
 
-import { createMcpHttpHandler, PROTOCOL_VERSION } from "../src/mcp-http-transport.js";
+import {
+  createMcpHttpHandler,
+  PROTOCOL_VERSION,
+} from "../src/mcp-http-transport.js";
 
 /* ---- mock runtime ---- */
 
@@ -19,9 +22,7 @@ function createMockRuntime() {
     },
     async callToolForMcp(name, args) {
       return {
-        content: [
-          { type: "text", text: JSON.stringify({ tool: name, args }) },
-        ],
+        content: [{ type: "text", text: JSON.stringify({ tool: name, args }) }],
       };
     },
   };
@@ -342,7 +343,9 @@ test("OPTIONS /mcp returns CORS headers", async () => {
     assert.equal(res.status, 204);
     assert.ok(res.headers.get("access-control-allow-methods").includes("POST"));
     assert.ok(
-      res.headers.get("access-control-allow-headers").includes("mcp-session-id"),
+      res.headers
+        .get("access-control-allow-headers")
+        .includes("mcp-session-id"),
     );
   } finally {
     ctx.close();

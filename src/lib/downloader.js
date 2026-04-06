@@ -17,12 +17,16 @@ function stripHtml(fragment) {
 }
 
 function normalizeSpecSource(value) {
-  const normalized = String(value ?? "official").trim().toLowerCase();
+  const normalized = String(value ?? "official")
+    .trim()
+    .toLowerCase();
   if (["official", "instance", "auto"].includes(normalized)) {
     return normalized;
   }
 
-  throw new Error(`Unsupported spec source "${value}". Expected official, instance, or auto.`);
+  throw new Error(
+    `Unsupported spec source "${value}". Expected official, instance, or auto.`,
+  );
 }
 
 function resolveDocumentUrl(href, pageUrl) {
@@ -40,15 +44,17 @@ function resolveDocumentUrl(href, pageUrl) {
 function isOpenApiSpec(value) {
   return Boolean(
     value &&
-      typeof value === "object" &&
-      !Array.isArray(value) &&
-      value.paths &&
-      (typeof value.openapi === "string" || typeof value.swagger === "string"),
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    value.paths &&
+    (typeof value.openapi === "string" || typeof value.swagger === "string"),
   );
 }
 
 function parseSemver(value) {
-  const match = String(value ?? "").trim().match(/^(\d+)\.(\d+)\.(\d+)$/);
+  const match = String(value ?? "")
+    .trim()
+    .match(/^(\d+)\.(\d+)\.(\d+)$/);
   if (!match) {
     return null;
   }
@@ -83,7 +89,9 @@ export async function fetchText(url, options = {}) {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `Failed to fetch ${url}: ${response.status} ${response.statusText}`,
+    );
   }
 
   return await response.text();
@@ -91,7 +99,9 @@ export async function fetchText(url, options = {}) {
 
 export function extractAvailableVersions(supportDocsHtml) {
   const matches = supportDocsHtml.match(/Version\s+(\d+\.\d+\.\d+)/g) ?? [];
-  return Array.from(new Set(matches.map((match) => match.replace(/^Version\s+/i, "").trim()))).sort();
+  return Array.from(
+    new Set(matches.map((match) => match.replace(/^Version\s+/i, "").trim())),
+  ).sort();
 }
 
 export function extractServiceReferences(
@@ -147,7 +157,9 @@ export function extractSpecFromRedocHtml(docHtml) {
   try {
     state = JSON.parse(stateJson);
   } catch (error) {
-    throw new Error(`Failed to parse embedded Redoc state JSON: ${error.message}`);
+    throw new Error(
+      `Failed to parse embedded Redoc state JSON: ${error.message}`,
+    );
   }
   const spec = state?.spec?.data;
 
@@ -179,7 +191,9 @@ async function discoverSource(version, options = {}) {
         publicUrl: options.docsUrl ?? options.requestDocsUrl,
       });
     } else if (specSource === "instance") {
-      throw new Error("specSource=instance requires docsUrl or a baseUrl-derived instance docs URL.");
+      throw new Error(
+        "specSource=instance requires docsUrl or a baseUrl-derived instance docs URL.",
+      );
     }
   }
 
@@ -201,7 +215,11 @@ async function discoverSource(version, options = {}) {
     } catch {
       continue;
     }
-    const references = extractServiceReferences(indexText, candidate.indexUrl, candidate.publicUrl);
+    const references = extractServiceReferences(
+      indexText,
+      candidate.indexUrl,
+      candidate.publicUrl,
+    );
     if (references.length > 0) {
       return {
         source: candidate,
@@ -217,7 +235,10 @@ async function discoverSource(version, options = {}) {
           {
             title: spec.info?.title ?? `XCO ${version} OpenAPI`,
             docUrl: candidate.publicUrl,
-            serviceSlug: inferServiceSlugFromTitle(spec.info?.title ?? "openapi", candidate.publicUrl),
+            serviceSlug: inferServiceSlugFromTitle(
+              spec.info?.title ?? "openapi",
+              candidate.publicUrl,
+            ),
             embeddedSpec: spec,
           },
         ],
@@ -248,7 +269,9 @@ export async function downloadVersionBundle(version, options = {}) {
 
   const discovered = await discoverSource(version, options);
   if (!discovered) {
-    throw new Error(`No API reference links or embedded OpenAPI specs were found for XCO ${version}.`);
+    throw new Error(
+      `No API reference links or embedded OpenAPI specs were found for XCO ${version}.`,
+    );
   }
 
   await fs.mkdir(servicesDir, { recursive: true });
@@ -269,7 +292,10 @@ export async function downloadVersionBundle(version, options = {}) {
           specTitle: existing?.info?.title ?? null,
           specVersion: existing?.info?.version ?? null,
           operationCount: Object.values(existing?.paths ?? {}).reduce(
-            (count, pathItem) => count + Object.keys(pathItem ?? {}).filter((k) => HTTP_METHODS.has(k)).length,
+            (count, pathItem) =>
+              count +
+              Object.keys(pathItem ?? {}).filter((k) => HTTP_METHODS.has(k))
+                .length,
             0,
           ),
           reused: true,
@@ -298,7 +324,9 @@ export async function downloadVersionBundle(version, options = {}) {
 
     const spec =
       reference.embeddedSpec ??
-      extractSpecFromDocument(await fetchText(reference.fetchUrl ?? reference.docUrl, options));
+      extractSpecFromDocument(
+        await fetchText(reference.fetchUrl ?? reference.docUrl, options),
+      );
     await writeJson(specFilePath, spec);
 
     services.push({
@@ -309,7 +337,9 @@ export async function downloadVersionBundle(version, options = {}) {
       specTitle: spec.info?.title ?? null,
       specVersion: spec.info?.version ?? null,
       operationCount: Object.values(spec.paths ?? {}).reduce(
-        (count, pathItem) => count + Object.keys(pathItem ?? {}).filter((k) => HTTP_METHODS.has(k)).length,
+        (count, pathItem) =>
+          count +
+          Object.keys(pathItem ?? {}).filter((k) => HTTP_METHODS.has(k)).length,
         0,
       ),
       reused: false,

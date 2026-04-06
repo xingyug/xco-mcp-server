@@ -77,18 +77,25 @@ function sharedConnectionFlags(flags) {
     usernameEnv: flags["username-env"],
     passwordEnv: flags["password-env"],
     tokenEnv: flags["token-env"],
-    readonly: flags.readonly === undefined ? undefined : parseBoolean(flags.readonly),
+    readonly:
+      flags.readonly === undefined ? undefined : parseBoolean(flags.readonly),
     bastionJumps: flags["bastion-jumps"],
     bastionIdentityFile: flags["bastion-identity-file"],
     bastionPasswordAuth:
-      flags["bastion-password-auth"] === undefined ? undefined : parseBoolean(flags["bastion-password-auth"]),
+      flags["bastion-password-auth"] === undefined
+        ? undefined
+        : parseBoolean(flags["bastion-password-auth"]),
     bastionPassword: flags["bastion-password"],
     bastionPasswordEnv: flags["bastion-password-env"],
     bastionTargetHost: flags["bastion-target-host"],
     bastionTargetPort:
-      flags["bastion-target-port"] === undefined ? undefined : Number.parseInt(flags["bastion-target-port"], 10),
+      flags["bastion-target-port"] === undefined
+        ? undefined
+        : Number.parseInt(flags["bastion-target-port"], 10),
     bastionLocalPort:
-      flags["bastion-local-port"] === undefined ? undefined : Number.parseInt(flags["bastion-local-port"], 10),
+      flags["bastion-local-port"] === undefined
+        ? undefined
+        : Number.parseInt(flags["bastion-local-port"], 10),
     bastionBindHost: flags["bastion-bind-host"],
     bastionStrictHostKeyChecking:
       flags["bastion-strict-host-key-checking"] === undefined
@@ -185,7 +192,9 @@ async function main() {
         throw new Error("Missing tool name for `call`.");
       }
 
-      const input = flags.json ? parseJsonText(flags.json, "tool arguments") : {};
+      const input = flags.json
+        ? parseJsonText(flags.json, "tool arguments")
+        : {};
       const result = await runtime.callTool(toolName, input);
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
       return;
@@ -196,9 +205,16 @@ async function main() {
         method: flags.method,
         servicePrefix: flags["service-prefix"],
         path: flags.path,
-        authenticate: flags.authenticate === undefined ? undefined : parseBoolean(flags.authenticate),
-        query: flags.query ? parseJsonText(flags.query, "query JSON") : undefined,
-        headers: flags.headers ? parseJsonText(flags.headers, "headers JSON") : undefined,
+        authenticate:
+          flags.authenticate === undefined
+            ? undefined
+            : parseBoolean(flags.authenticate),
+        query: flags.query
+          ? parseJsonText(flags.query, "query JSON")
+          : undefined,
+        headers: flags.headers
+          ? parseJsonText(flags.headers, "headers JSON")
+          : undefined,
         body: flags.body ? parseJsonText(flags.body, "body JSON") : undefined,
         ...sharedConnectionFlags(flags),
       };

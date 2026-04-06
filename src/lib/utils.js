@@ -2,7 +2,15 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-export const HTTP_METHODS = new Set(["get", "post", "put", "patch", "delete", "head", "options"]);
+export const HTTP_METHODS = new Set([
+  "get",
+  "post",
+  "put",
+  "patch",
+  "delete",
+  "head",
+  "options",
+]);
 
 export function slugify(value) {
   return String(value)

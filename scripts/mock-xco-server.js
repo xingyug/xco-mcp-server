@@ -67,7 +67,8 @@ const tenantSpec = {
   openapi: "3.0.3",
   info: {
     title: "Tenant Service",
-    description: "Synthetic mock XCO tenant service for bastion e2e validation.",
+    description:
+      "Synthetic mock XCO tenant service for bastion e2e validation.",
     version: "3.7.0",
   },
   servers: [
@@ -233,7 +234,10 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", "http://mock-xco.local");
   process.stdout.write(`[request] ${req.method} ${url.pathname}\n`);
 
-  if (req.method === "GET" && ["/healthz", "/v1/tenant/health"].includes(url.pathname)) {
+  if (
+    req.method === "GET" &&
+    ["/healthz", "/v1/tenant/health"].includes(url.pathname)
+  ) {
     sendJson(res, 200, {
       status: "ok",
     });
@@ -275,7 +279,9 @@ const server = http.createServer(async (req, res) => {
     const payload = payloadText.trim() ? JSON.parse(payloadText) : {};
     const refreshToken = payload?.["refresh-token"];
 
-    const username = Array.from(users.entries()).find(([, user]) => user.refreshTokens.has(refreshToken))?.[0];
+    const username = Array.from(users.entries()).find(([, user]) =>
+      user.refreshTokens.has(refreshToken),
+    )?.[0];
     if (!username) {
       sendJson(res, 401, {
         error: "Invalid refresh token",

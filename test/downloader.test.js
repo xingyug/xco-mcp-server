@@ -60,18 +60,18 @@ test("extractServiceReferences resolves relative instance-doc links for both fet
       "https://xco.example/docs/",
     ),
     [
-    {
-      title: "XCO Auth Service API Reference",
-      docUrl: "https://xco.example/docs/auth.html",
-      fetchUrl: "http://127.0.0.1:39000/docs/auth.html",
-      serviceSlug: "xco-auth",
-    },
-    {
-      title: "XCO Tenant Service API Reference",
-      docUrl: "https://xco.example/docs/tenant.html",
-      fetchUrl: "http://127.0.0.1:39000/docs/tenant.html",
-      serviceSlug: "xco-tenant",
-    },
+      {
+        title: "XCO Auth Service API Reference",
+        docUrl: "https://xco.example/docs/auth.html",
+        fetchUrl: "http://127.0.0.1:39000/docs/auth.html",
+        serviceSlug: "xco-auth",
+      },
+      {
+        title: "XCO Tenant Service API Reference",
+        docUrl: "https://xco.example/docs/tenant.html",
+        fetchUrl: "http://127.0.0.1:39000/docs/tenant.html",
+        serviceSlug: "xco-tenant",
+      },
     ],
   );
 });
@@ -149,8 +149,11 @@ test("extractSpecFromDocument parses direct OpenAPI JSON payloads", () => {
 });
 
 test("downloadVersionBundle falls back from patch release docs to the matching x.y.0 docs", async () => {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "xco-downloader-test-"));
-  const fallbackSupportUrl = "https://supportdocs.extremenetworks.com/support/documentation/extremecloud-orchestrator-3-8-0/";
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), "xco-downloader-test-"),
+  );
+  const fallbackSupportUrl =
+    "https://supportdocs.extremenetworks.com/support/documentation/extremecloud-orchestrator-3-8-0/";
   const tenantDocUrl =
     "https://documentation.extremenetworks.com/ExtremeCloud%20Orchestrator%20v3.8.0%20API%20Documents/tenant.html";
 

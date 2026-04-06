@@ -36,7 +36,10 @@ function resolveBastionPassword(config, overrides = {}) {
     return config.bastionPassword;
   }
 
-  if (overrides.bastionPasswordEnv && process.env[overrides.bastionPasswordEnv]) {
+  if (
+    overrides.bastionPasswordEnv &&
+    process.env[overrides.bastionPasswordEnv]
+  ) {
     return process.env[overrides.bastionPasswordEnv];
   }
 
@@ -74,11 +77,13 @@ export function getTunnelSettings(config, overrides = {}) {
       parseBoolean(config.bastionPasswordAuth) ??
       false,
     password: resolveBastionPassword(config, overrides),
-    passwordEnv: overrides.bastionPasswordEnv ?? config.bastionPasswordEnv ?? null,
+    passwordEnv:
+      overrides.bastionPasswordEnv ?? config.bastionPasswordEnv ?? null,
     targetHost: overrides.bastionTargetHost ?? config.bastionTargetHost ?? null,
     targetPort: overrides.bastionTargetPort ?? config.bastionTargetPort ?? null,
     localPort: overrides.bastionLocalPort ?? config.bastionLocalPort ?? null,
-    bindHost: overrides.bastionBindHost ?? config.bastionBindHost ?? "127.0.0.1",
+    bindHost:
+      overrides.bastionBindHost ?? config.bastionBindHost ?? "127.0.0.1",
     strictHostKeyChecking:
       parseBoolean(overrides.bastionStrictHostKeyChecking) ??
       parseBoolean(config.bastionStrictHostKeyChecking) ??
@@ -95,7 +100,11 @@ export function deriveTunnelTarget(logicalBaseUrl, settings) {
   const parsedPort = url.port ? Number(url.port) : null;
   return {
     targetHost: settings.targetHost ?? url.hostname,
-    targetPort: Number(settings.targetPort ?? parsedPort ?? (url.protocol === "http:" ? 80 : 443)),
+    targetPort: Number(
+      settings.targetPort ??
+        parsedPort ??
+        (url.protocol === "http:" ? 80 : 443),
+    ),
   };
 }
 
@@ -119,12 +128,18 @@ export function buildSshTunnelSpec(logicalBaseUrl, settings) {
   }
 
   if (settings.passwordAuth && !settings.password) {
-    throw new Error("Bastion password auth is enabled, but no bastion password or bastion password env value is available.");
+    throw new Error(
+      "Bastion password auth is enabled, but no bastion password or bastion password env value is available.",
+    );
   }
 
-  const { targetHost, targetPort } = deriveTunnelTarget(logicalBaseUrl, settings);
+  const { targetHost, targetPort } = deriveTunnelTarget(
+    logicalBaseUrl,
+    settings,
+  );
   const finalHop = settings.jumps.at(-1);
-  const proxyJump = settings.jumps.length > 1 ? settings.jumps.slice(0, -1).join(",") : null;
+  const proxyJump =
+    settings.jumps.length > 1 ? settings.jumps.slice(0, -1).join(",") : null;
 
   return {
     finalHop,
@@ -169,7 +184,10 @@ export function buildSshTunnelCommand(logicalBaseUrl, settings) {
   }
 
   if (spec.strictHostKeyChecking !== null) {
-    args.push("-o", `StrictHostKeyChecking=${spec.strictHostKeyChecking ? "yes" : "no"}`);
+    args.push(
+      "-o",
+      `StrictHostKeyChecking=${spec.strictHostKeyChecking ? "yes" : "no"}`,
+    );
   }
 
   args.push(
@@ -189,10 +207,14 @@ export function buildSshTunnelCommand(logicalBaseUrl, settings) {
 function createAskpassHelper() {
   const helperDir = fs.mkdtempSync(path.join(os.tmpdir(), "xco-askpass-"));
   const helperPath = path.join(helperDir, "askpass.sh");
-  fs.writeFileSync(helperPath, "#!/bin/sh\nprintf '%s\\n' \"$XCO_BASTION_ASKPASS_PASSWORD\"\n", {
-    encoding: "utf8",
-    mode: 0o700,
-  });
+  fs.writeFileSync(
+    helperPath,
+    "#!/bin/sh\nprintf '%s\\n' \"$XCO_BASTION_ASKPASS_PASSWORD\"\n",
+    {
+      encoding: "utf8",
+      mode: 0o700,
+    },
+  );
   fs.chmodSync(helperPath, 0o700);
 
   return {
@@ -292,16 +314,22 @@ async function waitForLocalPort(bindHost, localPort, timeoutMs = 5000) {
     await new Promise((resolve) => setTimeout(resolve, 150));
   }
 
-  throw new Error(`SSH tunnel did not open ${bindHost}:${localPort} before timeout.`);
+  throw new Error(
+    `SSH tunnel did not open ${bindHost}:${localPort} before timeout.`,
+  );
 }
 
 export async function startSshTunnel(logicalBaseUrl, settings) {
-  const localPort = settings.localPort ?? (await allocateLocalPort(settings.bindHost ?? "127.0.0.1"));
+  const localPort =
+    settings.localPort ??
+    (await allocateLocalPort(settings.bindHost ?? "127.0.0.1"));
   const tunnelCommand = buildSshTunnelCommand(logicalBaseUrl, {
     ...settings,
     localPort,
   });
-  const askpassHelper = tunnelCommand.spec.passwordAuth ? createAskpassHelper() : null;
+  const askpassHelper = tunnelCommand.spec.passwordAuth
+    ? createAskpassHelper()
+    : null;
 
   const child = spawn(tunnelCommand.command, tunnelCommand.args, {
     env: {
@@ -333,7 +361,11 @@ export async function startSshTunnel(logicalBaseUrl, settings) {
 
   try {
     await Promise.race([
-      waitForLocalPort(tunnelCommand.spec.bindHost, tunnelCommand.spec.localPort, 5000),
+      waitForLocalPort(
+        tunnelCommand.spec.bindHost,
+        tunnelCommand.spec.localPort,
+        5000,
+      ),
       new Promise((_, reject) => {
         child.once("error", (error) => {
           reject(error);

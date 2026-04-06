@@ -1,10 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildSessionKey, decodeJwtPayload, getTokenExpiresAt, isExpired, maskToken } from "../src/lib/auth.js";
+import {
+  buildSessionKey,
+  decodeJwtPayload,
+  getTokenExpiresAt,
+  isExpired,
+  maskToken,
+} from "../src/lib/auth.js";
 
 function makeJwt(payload) {
-  const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  const encode = (value) =>
+    Buffer.from(JSON.stringify(value)).toString("base64url");
   return `${encode({ alg: "HS256", typ: "JWT" })}.${encode(payload)}.signature`;
 }
 

@@ -56,7 +56,9 @@ function createMessageReader(onMessage) {
         try {
           parsed = JSON.parse(payload);
         } catch {
-          throw Object.assign(new Error("Invalid JSON in message body."), { jsonRpcCode: -32700 });
+          throw Object.assign(new Error("Invalid JSON in message body."), {
+            jsonRpcCode: -32700,
+          });
         }
         await onMessage(parsed);
       }

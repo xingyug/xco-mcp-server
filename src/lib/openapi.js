@@ -56,7 +56,10 @@ export function dereferenceSchema(document, schema, stack = new Set()) {
   for (const [key, value] of Object.entries(schema)) {
     if (key === "properties" && value && typeof value === "object") {
       output[key] = Object.fromEntries(
-        Object.entries(value).map(([propKey, propValue]) => [propKey, dereferenceSchema(document, propValue, stack)]),
+        Object.entries(value).map(([propKey, propValue]) => [
+          propKey,
+          dereferenceSchema(document, propValue, stack),
+        ]),
       );
       continue;
     }
@@ -67,7 +70,9 @@ export function dereferenceSchema(document, schema, stack = new Set()) {
     }
 
     if (Array.isArray(value)) {
-      output[key] = value.map((item) => dereferenceSchema(document, item, stack));
+      output[key] = value.map((item) =>
+        dereferenceSchema(document, item, stack),
+      );
       continue;
     }
 
@@ -99,7 +104,9 @@ function compactSchema(schema, depth = 0, maxDepth = 2) {
   }
 
   const output = {};
-  const type = schema.type ?? (schema.properties ? "object" : schema.items ? "array" : undefined);
+  const type =
+    schema.type ??
+    (schema.properties ? "object" : schema.items ? "array" : undefined);
   if (type) {
     output.type = type;
   }
@@ -126,7 +133,10 @@ function compactSchema(schema, depth = 0, maxDepth = 2) {
 
   if (schema.properties && typeof schema.properties === "object") {
     output.properties = Object.fromEntries(
-      Object.entries(schema.properties).map(([key, value]) => [key, compactSchema(value, depth + 1, maxDepth)]),
+      Object.entries(schema.properties).map(([key, value]) => [
+        key,
+        compactSchema(value, depth + 1, maxDepth),
+      ]),
     );
   }
 
@@ -138,7 +148,9 @@ function compactSchema(schema, depth = 0, maxDepth = 2) {
 }
 
 function schemaFromParameter(document, parameter) {
-  const resolvedParameter = parameter?.$ref ? resolveLocalRef(document, parameter.$ref) : parameter;
+  const resolvedParameter = parameter?.$ref
+    ? resolveLocalRef(document, parameter.$ref)
+    : parameter;
   const schema = resolvedParameter?.schema
     ? dereferenceSchema(document, resolvedParameter.schema)
     : { type: "string" };
@@ -146,7 +158,9 @@ function schemaFromParameter(document, parameter) {
   return {
     ...schema,
     description: summarizeText(
-      [resolvedParameter?.description, `Location: ${resolvedParameter?.in}`].filter(Boolean).join(" "),
+      [resolvedParameter?.description, `Location: ${resolvedParameter?.in}`]
+        .filter(Boolean)
+        .join(" "),
     ),
   };
 }
@@ -157,12 +171,17 @@ function buildInputSchema(document, pathItem, operation) {
   const parameters = mergeParameters(pathItem.parameters, operation.parameters);
 
   for (const parameter of parameters) {
-    const resolvedParameter = parameter?.$ref ? resolveLocalRef(document, parameter.$ref) : parameter;
+    const resolvedParameter = parameter?.$ref
+      ? resolveLocalRef(document, parameter.$ref)
+      : parameter;
     if (!resolvedParameter?.name) {
       continue;
     }
 
-    properties[resolvedParameter.name] = schemaFromParameter(document, resolvedParameter);
+    properties[resolvedParameter.name] = schemaFromParameter(
+      document,
+      resolvedParameter,
+    );
     if (resolvedParameter.required) {
       required.push(resolvedParameter.name);
     }
@@ -175,7 +194,9 @@ function buildInputSchema(document, pathItem, operation) {
       description: summarizeText(
         [
           operation.requestBody?.description,
-          bodyDescriptor.contentType ? `Content-Type: ${bodyDescriptor.contentType}` : null,
+          bodyDescriptor.contentType
+            ? `Content-Type: ${bodyDescriptor.contentType}`
+            : null,
         ]
           .filter(Boolean)
           .join(" "),
@@ -204,16 +225,33 @@ function operationRequiresAuth(document, operation) {
   return security.length > 0;
 }
 
-function describeOperation(document, service, routePath, method, pathItem, operation) {
+function describeOperation(
+  document,
+  service,
+  routePath,
+  method,
+  pathItem,
+  operation,
+) {
   const serverUrl = document.servers?.[0]?.url ?? null;
-  const serverPathname = serverUrl ? new URL(serverUrl, "http://placeholder.local").pathname : "";
+  const serverPathname = serverUrl
+    ? new URL(serverUrl, "http://placeholder.local").pathname
+    : "";
   const operationId = operation.operationId ?? null;
-  const toolName = makeToolName(service.serviceSlug, operationId, method, routePath);
+  const toolName = makeToolName(
+    service.serviceSlug,
+    operationId,
+    method,
+    routePath,
+  );
   const contentType = pickJsonContentType(operation.requestBody?.content);
 
   return {
     name: toolName,
-    title: operation.summary ?? operationId ?? `${method.toUpperCase()} ${routePath}`,
+    title:
+      operation.summary ??
+      operationId ??
+      `${method.toUpperCase()} ${routePath}`,
     description: summarizeText(
       [
         service.title,
@@ -237,13 +275,21 @@ function describeOperation(document, service, routePath, method, pathItem, opera
       description: operation.description ?? null,
       tags: operation.tags ?? [],
       requiresAuth: operationRequiresAuth(document, operation),
-      parameters: mergeParameters(pathItem.parameters, operation.parameters).map((parameter) =>
-        parameter?.$ref ? resolveLocalRef(document, parameter.$ref) : deepClone(parameter),
+      parameters: mergeParameters(
+        pathItem.parameters,
+        operation.parameters,
+      ).map((parameter) =>
+        parameter?.$ref
+          ? resolveLocalRef(document, parameter.$ref)
+          : deepClone(parameter),
       ),
       requestContentType: contentType,
       requestBodyRequired: Boolean(operation.requestBody?.required),
       requestBodySchema: contentType
-        ? dereferenceSchema(document, operation.requestBody?.content?.[contentType]?.schema)
+        ? dereferenceSchema(
+            document,
+            operation.requestBody?.content?.[contentType]?.schema,
+          )
         : null,
       rawOperation: deepClone(operation),
     },
@@ -264,7 +310,11 @@ export async function loadSpecEntries(config) {
   const entries = [];
 
   if (config.activeVersion) {
-    const versionDir = path.join(config.xcoHome, "versions", config.activeVersion);
+    const versionDir = path.join(
+      config.xcoHome,
+      "versions",
+      config.activeVersion,
+    );
     const manifestPath = path.join(versionDir, "manifest.json");
     if (await fileExists(manifestPath)) {
       const manifest = await readJson(manifestPath);
@@ -306,13 +356,24 @@ export async function loadOperations(config) {
   const operations = [];
 
   for (const entry of specEntries) {
-    for (const [routePath, pathItem] of Object.entries(entry.spec.paths ?? {})) {
+    for (const [routePath, pathItem] of Object.entries(
+      entry.spec.paths ?? {},
+    )) {
       for (const [method, operation] of Object.entries(pathItem ?? {})) {
         if (!HTTP_METHODS.has(method)) {
           continue;
         }
 
-        operations.push(describeOperation(entry.spec, entry, routePath, method, pathItem, operation));
+        operations.push(
+          describeOperation(
+            entry.spec,
+            entry,
+            routePath,
+            method,
+            pathItem,
+            operation,
+          ),
+        );
       }
     }
   }

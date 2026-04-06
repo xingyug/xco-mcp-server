@@ -29,8 +29,14 @@ export async function loadConfig(options = {}) {
   const cwd = options.cwd ?? process.cwd();
   const env = options.env ?? process.env;
   const xcoHome = toAbsolutePath(cwd, env.XCO_HOME ?? ".xco");
-  const configPath = toAbsolutePath(cwd, env.XCO_CONFIG ?? path.join(xcoHome, "config.json"));
-  const sessionPath = toAbsolutePath(cwd, env.XCO_SESSION_PATH ?? path.join(xcoHome, "session.json"));
+  const configPath = toAbsolutePath(
+    cwd,
+    env.XCO_CONFIG ?? path.join(xcoHome, "config.json"),
+  );
+  const sessionPath = toAbsolutePath(
+    cwd,
+    env.XCO_SESSION_PATH ?? path.join(xcoHome, "session.json"),
+  );
   const manualSpecsDir = toAbsolutePath(cwd, env.XCO_SPECS_DIR ?? "specs");
 
   let fileConfig = {};
@@ -82,7 +88,10 @@ export async function loadConfig(options = {}) {
     usernameEnv: merged.usernameEnv ?? null,
     password: merged.password ?? null,
     passwordEnv: merged.passwordEnv ?? null,
-    readonly: parseBooleanish(merged.readonly, parseBooleanish(fileConfig.readonly, false)),
+    readonly: parseBooleanish(
+      merged.readonly,
+      parseBooleanish(fileConfig.readonly, false),
+    ),
     bastionJumps: merged.bastionJumps ?? null,
     bastionIdentityFile: merged.bastionIdentityFile ?? null,
     bastionPassword: merged.bastionPassword ?? null,
@@ -93,7 +102,8 @@ export async function loadConfig(options = {}) {
     ),
     bastionTargetHost: merged.bastionTargetHost ?? null,
     bastionTargetPort:
-      merged.bastionTargetPort !== undefined && merged.bastionTargetPort !== null
+      merged.bastionTargetPort !== undefined &&
+      merged.bastionTargetPort !== null
         ? Number(merged.bastionTargetPort)
         : null,
     bastionLocalPort:
@@ -129,7 +139,9 @@ export async function saveConfig(config, patch) {
     bastionTargetPort: nextValue.bastionTargetPort ?? null,
     bastionLocalPort: nextValue.bastionLocalPort ?? null,
     bastionBindHost: nextValue.bastionBindHost ?? null,
-    bastionStrictHostKeyChecking: Boolean(nextValue.bastionStrictHostKeyChecking),
+    bastionStrictHostKeyChecking: Boolean(
+      nextValue.bastionStrictHostKeyChecking,
+    ),
   });
 
   return nextValue;

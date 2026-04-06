@@ -19,10 +19,16 @@ test("parseBastionJumps supports comma-separated multi-hop values", () => {
 });
 
 test("deriveTunnelTarget falls back to the logical base URL host and port", () => {
-  assert.deepEqual(deriveTunnelTarget("https://xco.internal.example", getTunnelSettings({}, {})), {
-    targetHost: "xco.internal.example",
-    targetPort: 443,
-  });
+  assert.deepEqual(
+    deriveTunnelTarget(
+      "https://xco.internal.example",
+      getTunnelSettings({}, {}),
+    ),
+    {
+      targetHost: "xco.internal.example",
+      targetPort: 443,
+    },
+  );
 });
 
 test("buildSshTunnelCommand emits ProxyJump and local forward arguments", () => {
@@ -117,7 +123,9 @@ test("terminateTunnelProcess kills the detached process group when available", (
     const child = {
       pid: 4321,
       kill() {
-        throw new Error("child.kill should not be used when process group kill succeeds");
+        throw new Error(
+          "child.kill should not be used when process group kill succeeds",
+        );
       },
     };
 
