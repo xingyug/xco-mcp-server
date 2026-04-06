@@ -1,0 +1,21 @@
+xco-mcp-server
+Copyright 2026 contributors
+
+This project is licensed under the Apache License, Version 2.0.
+
+This project is an unofficial, independently developed compatibility tool. It
+is not an official Extreme Networks project and is not affiliated with,
+endorsed by, or sponsored by Extreme Networks.
+
+Extreme Networks names, marks, and product names referenced by this
+project are used only to describe interoperability and compatibility. Those
+names and marks remain the property of their respective owners.
+
+This repository does not include copied official legal terms, copied official
+documentation bundles, or redistributed official OpenAPI bundles. The setup
+workflow downloads documentation-derived OpenAPI files directly from official
+Extreme Networks websites into the local operator cache under `.xco/`.
+
+Operators are responsible for reviewing and complying with the applicable
+Extreme Networks terms, support agreements, and documentation usage terms
+for their environment.

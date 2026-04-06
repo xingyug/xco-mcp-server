@@ -1,0 +1,28 @@
+node_modules/
+coverage/
+*.log
+.xco/
+
+# OS files
+.DS_Store
+Thumbs.db
+.directory
+Desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.sublime-*
+
+# Temporary files
+*.tmp
+*.bak
+.cache/
+dist/
+build/
+
+# Zone.Identifier files (Windows)
+*:Zone.Identifier

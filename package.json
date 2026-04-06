@@ -1,0 +1,45 @@
+{
+  "name": "xco-mcp-server",
+  "version": "0.1.0",
+  "description": "Multi-entry MCP/CLI/HTTP server for ExtremeCloud Orchestrator OpenAPI bundles",
+  "type": "module",
+  "bin": {
+    "xco-call": "./src/cli.js",
+    "xco-http-server": "./src/http-server.js",
+    "xco-mcp-server": "./src/server.js"
+  },
+  "scripts": {
+    "setup:3.7.0": "node ./src/cli.js setup --version 3.7.0",
+    "start": "node ./src/server.js",
+    "start:http": "node ./src/http-server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "src/",
+    "specs/",
+    "LICENSE",
+    "NOTICE",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xingyug/xco-mcp-server.git"
+  },
+  "homepage": "https://github.com/xingyug/xco-mcp-server",
+  "bugs": {
+    "url": "https://github.com/xingyug/xco-mcp-server/issues"
+  },
+  "author": "xingyug",
+  "keywords": [
+    "mcp",
+    "xco",
+    "extremecloud-orchestrator",
+    "openapi",
+    "sse",
+    "ssh-tunnel"
+  ],
+  "license": "Apache-2.0"
+}

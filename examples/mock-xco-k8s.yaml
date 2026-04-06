@@ -1,0 +1,345 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: xco-e2e
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mock-xco-server
+  namespace: xco-e2e
+data:
+  mock-xco-server.js: |
+    #!/usr/bin/env node
+    import http from "node:http";
+    import crypto from "node:crypto";
+
+    const authSpec = {
+      openapi: "3.0.3",
+      info: {
+        title: "Auth Service",
+        description: "Synthetic mock XCO auth service for bastion e2e validation.",
+        version: "3.7.0",
+      },
+      servers: [{ url: "http://mock-xco:8080/v1/auth" }],
+      paths: {
+        "/token/access-token": {
+          post: {
+            summary: "Create access token",
+            operationId: "CreateAccessToken",
+            security: [],
+            requestBody: {
+              required: true,
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object"
+                  }
+                }
+              }
+            },
+            responses: { "200": { description: "OK" } }
+          }
+        },
+        "/token/refresh": {
+          post: {
+            summary: "Refresh access token",
+            operationId: "RefreshAccessToken",
+            security: [],
+            requestBody: {
+              required: true,
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object"
+                  }
+                }
+              }
+            },
+            responses: { "200": { description: "OK" } }
+          }
+        }
+      }
+    };
+
+    const tenantSpec = {
+      openapi: "3.0.3",
+      info: {
+        title: "Tenant Service",
+        description: "Synthetic mock XCO tenant service for bastion e2e validation.",
+        version: "3.7.0",
+      },
+      servers: [{ url: "http://mock-xco:8080/v1/tenant" }],
+      security: [{ bearerAuth: [] }],
+      paths: {
+        "/health": {
+          get: {
+            summary: "Get health",
+            operationId: "GetHealth",
+            security: [],
+            responses: { "200": { description: "OK" } }
+          }
+        },
+        "/tenants": {
+          get: {
+            summary: "getTenants",
+            operationId: "getTenants",
+            responses: { "200": { description: "OK" } }
+          },
+          post: {
+            summary: "createTenant",
+            operationId: "createTenant",
+            responses: { "201": { description: "Created" } }
+          }
+        }
+      },
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: "http",
+            scheme: "bearer",
+            bearerFormat: "JWT"
+          }
+        }
+      }
+    };
+
+    const docsIndexHtml = `<!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8" />
+        <title>Mock XCO Docs</title>
+      </head>
+      <body>
+        <a href="/docs/auth-service"><h1>Auth Service API Reference</h1></a>
+        <a href="/docs/tenant-service"><h1>Tenant Service API Reference</h1></a>
+      </body>
+    </html>
+    `;
+
+    const tenants = [{ id: "1", name: "Tenant-1" }];
+    const users = new Map([
+      [
+        "admin",
+        {
+          password: "secret",
+          refreshTokens: new Set(),
+        }
+      ]
+    ]);
+
+    function base64UrlEncode(value) {
+      return Buffer.from(value, "utf8").toString("base64url");
+    }
+
+    function createJwt(subject, expiresInSeconds) {
+      const now = Math.floor(Date.now() / 1000);
+      const header = base64UrlEncode(JSON.stringify({ alg: "none", typ: "JWT" }));
+      const payload = base64UrlEncode(JSON.stringify({
+        sub: subject,
+        exp: now + expiresInSeconds,
+        iat: now,
+      }));
+      return `${header}.${payload}.mock-signature`;
+    }
+
+    function issueTokens(username) {
+      const accessToken = createJwt(username, 5);
+      const refreshToken = `refresh-${username}-${crypto.randomUUID()}`;
+      const user = users.get(username);
+      user?.refreshTokens.add(refreshToken);
+      return {
+        "access-token": accessToken,
+        "refresh-token": refreshToken,
+        "token-type": "Bearer",
+        message: "ok",
+      };
+    }
+
+    function extractBearerToken(req) {
+      const header = req.headers.authorization ?? "";
+      const match = String(header).match(/^Bearer\s+(.+)$/i);
+      return match?.[1] ?? null;
+    }
+
+    function isKnownAccessToken(token) {
+      return Boolean(token && typeof token === "string" && token.split(".").length === 3);
+    }
+
+    function sendJson(res, statusCode, payload) {
+      const body = `${JSON.stringify(payload, null, 2)}\n`;
+      res.writeHead(statusCode, {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": Buffer.byteLength(body),
+      });
+      res.end(body);
+    }
+
+    function sendHtml(res, statusCode, payload) {
+      res.writeHead(statusCode, {
+        "content-type": "text/html; charset=utf-8",
+        "content-length": Buffer.byteLength(payload),
+      });
+      res.end(payload);
+    }
+
+    function readBody(req) {
+      return new Promise((resolve, reject) => {
+        let body = "";
+        req.setEncoding("utf8");
+        req.on("data", (chunk) => {
+          body += chunk;
+        });
+        req.on("end", () => resolve(body));
+        req.on("error", reject);
+      });
+    }
+
+    const server = http.createServer(async (req, res) => {
+      const url = new URL(req.url ?? "/", "http://mock-xco.local");
+      process.stdout.write(`[request] ${req.method} ${url.pathname}\n`);
+
+      if (req.method === "GET" && ["/healthz", "/v1/tenant/health"].includes(url.pathname)) {
+        sendJson(res, 200, { status: "ok" });
+        return;
+      }
+
+      if (req.method === "GET" && ["/docs", "/docs/"].includes(url.pathname)) {
+        sendHtml(res, 200, docsIndexHtml);
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/docs/auth-service") {
+        sendJson(res, 200, authSpec);
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/docs/tenant-service") {
+        sendJson(res, 200, tenantSpec);
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/v1/auth/token/access-token") {
+        const payloadText = await readBody(req);
+        const payload = payloadText.trim() ? JSON.parse(payloadText) : {};
+        const user = users.get(payload?.username ?? "");
+        if (!user || user.password !== payload?.password) {
+          sendJson(res, 401, { error: "Invalid credentials" });
+          return;
+        }
+
+        sendJson(res, 200, issueTokens(payload.username));
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/v1/auth/token/refresh") {
+        const payloadText = await readBody(req);
+        const payload = payloadText.trim() ? JSON.parse(payloadText) : {};
+        const refreshToken = payload?.["refresh-token"];
+        const username = Array.from(users.entries()).find(([, user]) => user.refreshTokens.has(refreshToken))?.[0];
+        if (!username) {
+          sendJson(res, 401, { error: "Invalid refresh token" });
+          return;
+        }
+
+        sendJson(res, 200, issueTokens(username));
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/v1/tenant/tenants") {
+        if (!isKnownAccessToken(extractBearerToken(req))) {
+          sendJson(res, 401, { error: "Missing or invalid bearer token" });
+          return;
+        }
+
+        sendJson(res, 200, { items: tenants });
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/v1/tenant/tenants") {
+        if (!isKnownAccessToken(extractBearerToken(req))) {
+          sendJson(res, 401, { error: "Missing or invalid bearer token" });
+          return;
+        }
+
+        const payloadText = await readBody(req);
+        const payload = payloadText.trim() ? JSON.parse(payloadText) : {};
+        const tenant = {
+          id: String(tenants.length + 1),
+          name: payload?.name ?? `Tenant-${tenants.length + 1}`,
+        };
+        tenants.push(tenant);
+        sendJson(res, 201, tenant);
+        return;
+      }
+
+      sendJson(res, 404, {
+        error: "Not found",
+        method: req.method,
+        path: url.pathname,
+      });
+    });
+
+    const port = Number.parseInt(process.env.PORT ?? "8080", 10);
+    server.listen(port, "0.0.0.0", () => {
+      process.stdout.write(`mock-xco-server listening on :${port}\n`);
+    });
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-xco
+  namespace: xco-e2e
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mock-xco
+  template:
+    metadata:
+      labels:
+        app: mock-xco
+    spec:
+      containers:
+        - name: mock-xco
+          image: node:22-alpine
+          command: ["node", "/app/mock-xco-server.js"]
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: app
+              mountPath: /app/mock-xco-server.js
+              subPath: mock-xco-server.js
+      volumes:
+        - name: app
+          configMap:
+            name: mock-xco-server
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mock-xco
+  namespace: xco-e2e
+spec:
+  selector:
+    app: mock-xco
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mock-xco-nodeport
+  namespace: xco-e2e
+spec:
+  selector:
+    app: mock-xco
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      nodePort: 30608
+  type: NodePort
