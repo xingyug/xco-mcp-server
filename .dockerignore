@@ -1,0 +1,12 @@
+node_modules
+.xco
+.git
+.gitignore
+.dockerignore
+Dockerfile
+test/
+scripts/
+examples/
+docs/
+*.md
+!README.md

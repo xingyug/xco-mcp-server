@@ -1,3 +1,4 @@
+import { createMcpDispatch } from "./lib/mcp-dispatch.js";
 import { createRuntime } from "./lib/runtime.js";
 
 const PROTOCOL_VERSION = "2024-11-05";
@@ -76,37 +77,7 @@ function createMessageReader(onMessage) {
 
 export async function runMcpServer() {
   const runtime = await createRuntime();
-
-  async function dispatch(method, params) {
-    if (method === "initialize") {
-      return {
-        protocolVersion: PROTOCOL_VERSION,
-        capabilities: {
-          tools: { listChanged: true },
-        },
-        serverInfo: {
-          name: "xco-mcp-server",
-          version: "0.1.0",
-        },
-      };
-    }
-
-    if (method === "ping") {
-      return {};
-    }
-
-    if (method === "tools/list") {
-      return {
-        tools: runtime.getTools(),
-      };
-    }
-
-    if (method === "tools/call") {
-      return await runtime.callToolForMcp(params?.name, params?.arguments ?? {});
-    }
-
-    throw Object.assign(new Error(`Unsupported method "${method}"`), { jsonRpcCode: -32601 });
-  }
+  const { dispatch } = createMcpDispatch(runtime, PROTOCOL_VERSION);
 
   const read = createMessageReader(async (message) => {
     if (message.method && message.id === undefined) {

@@ -5,11 +5,12 @@ This file is for repository contributors. For operator-facing bootstrap and runt
 
 ## Project Overview
 
-Zero-dependency Node.js (>=22) ESM project. Three entry points share the same runtime:
+Zero-dependency Node.js (>=22) ESM project. Four entry points share the same runtime:
 
 | Entry Point | File | Purpose |
 |---|---|---|
-| MCP stdio | `src/server.js` | JSON-RPC stdio for MCP-compatible agents |
+| MCP stdio | `src/server.js` | JSON-RPC stdio for MCP-compatible agents (`2024-11-05`) |
+| MCP Streamable HTTP | `src/http-server.js` → `/mcp` | Remote MCP over HTTP (`2025-03-26`) |
 | CLI | `src/cli.js` | Direct command-line usage and skill wrappers |
 | HTTP + SSE | `src/http-server.js` | REST API with streaming progress events |
 
@@ -22,11 +23,13 @@ Use [docs/AUTH.md](docs/AUTH.md) for token and username/password flows.
 ```
 src/
 ├── server.js              # MCP stdio entry (thin wrapper)
-├── mcp-server.js          # MCP JSON-RPC framing and dispatch
+├── mcp-server.js          # MCP JSON-RPC framing and dispatch (stdio)
+├── mcp-http-transport.js  # MCP Streamable HTTP transport handler
 ├── cli.js                 # CLI argument parsing and command dispatch
-├── http-server.js         # HTTP + SSE server
+├── http-server.js         # HTTP + SSE server (REST API + /mcp endpoint)
 └── lib/
     ├── runtime.js         # Core orchestrator (XcoRuntime class, tool routing)
+    ├── mcp-dispatch.js    # Shared MCP dispatch logic (used by stdio + HTTP)
     ├── config.js           # Config loading, saving, credential resolution
     ├── auth.js             # JWT decode, session CRUD, token masking
     ├── downloader.js       # Spec discovery and download from docs sites

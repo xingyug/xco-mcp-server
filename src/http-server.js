@@ -6,6 +6,7 @@ import http from "node:http";
 import { createEventBus } from "./lib/event-bus.js";
 import { parseJsonText } from "./lib/json.js";
 import { createRuntime } from "./lib/runtime.js";
+import { createMcpHttpHandler } from "./mcp-http-transport.js";
 
 function sendJson(res, statusCode, payload) {
   const body = `${JSON.stringify(payload, null, 2)}\n`;
@@ -40,10 +41,18 @@ function readBody(req) {
 async function main() {
   const runtime = await createRuntime();
   const eventBus = createEventBus();
+  const handleMcp = createMcpHttpHandler(runtime);
   const host = process.env.XCO_HTTP_HOST ?? "127.0.0.1";
   const port = Number.parseInt(process.env.XCO_HTTP_PORT ?? "8787", 10);
 
   const server = http.createServer(async (req, res) => {
+    const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+
+    // MCP Streamable HTTP transport — handles its own CORS and methods
+    if (url.pathname === "/mcp") {
+      return handleMcp(req, res);
+    }
+
     if (req.method === "OPTIONS") {
       res.writeHead(204, {
         "access-control-allow-origin": "*",
@@ -53,8 +62,6 @@ async function main() {
       res.end();
       return;
     }
-
-    const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
 
     if (req.method === "GET" && url.pathname === "/healthz") {
       sendJson(res, 200, {

@@ -166,7 +166,44 @@ The exact JSON shape depends on the MCP client, but the important part is:
 - `cwd` points to the repo root
 - `env` injects runtime secrets that are not written into `config.json`
 
-## 8. Optional HTTP Fallback
+## 8. Optional: MCP Over HTTP (Streamable HTTP)
+
+If your agent needs remote MCP access rather than local stdio, use the HTTP server which exposes both the REST API and MCP Streamable HTTP on `/mcp`:
+
+```bash
+node ./src/http-server.js
+# MCP endpoint: http://127.0.0.1:8787/mcp
+```
+
+The `/mcp` endpoint implements MCP protocol version `2025-03-26`. Session flow:
+
+1. `POST /mcp` with `initialize` → get `Mcp-Session-Id` header
+2. `POST /mcp` with `initialized` notification
+3. Subsequent `POST /mcp` calls include `Mcp-Session-Id`
+4. `DELETE /mcp` to terminate
+
+## 9. Optional: Docker
+
+Build and run as a container:
+
+```bash
+docker build -t xco-mcp-server .
+docker run -d -p 8787:8787 -e XCO_PASSWORD=your-password xco-mcp-server
+```
+
+For stdio MCP via Docker:
+
+```json
+{
+  "command": "docker",
+  "args": ["run", "--rm", "-i", "xco-mcp-server", "src/server.js"],
+  "env": {
+    "XCO_PASSWORD": "your-xco-password"
+  }
+}
+```
+
+## 10. Optional: REST API Fallback
 
 If your agent environment blocks MCP servers but allows local HTTP:
 
@@ -192,7 +229,7 @@ Useful endpoints:
 - `POST /v1/call`
 - `POST /v1/raw`
 
-## 9. What Gets Stored Where
+## 11. What Gets Stored Where
 
 `$XCO_HOME/config.json`
 
@@ -215,7 +252,7 @@ Not written to `config.json`:
 - cleartext bastion password
 - cleartext bearer token value
 
-## 10. Recommended Defaults
+## 12. Recommended Defaults
 
 For a brand-new MCP instance:
 

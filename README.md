@@ -8,9 +8,11 @@ This is a personal open-source interoperability project. It is not an official E
 
 It supports:
 
-- `MCP stdio` for agents that allow MCP servers
+- `MCP stdio` for agents that allow MCP servers (protocol version `2024-11-05`)
+- `MCP Streamable HTTP` for remote agents over HTTP (`POST /mcp`, protocol version `2025-03-26`)
 - `CLI` for skills or locked-down agent environments
 - `HTTP + SSE` for local automation and streaming progress
+- `Docker / Kubernetes` deployment via the included Dockerfile
 - `multi-version setup` by downloading official XCO API references and extracting embedded OpenAPI specs
 - `username/password auth` with cached access-token and refresh-token handling
 - `bastion and multi-hop SSH` access for restricted XCO deployments
@@ -126,11 +128,38 @@ node ./src/cli.js auth logout
 
 ## MCP Usage
 
+### Stdio transport
+
 Start the stdio MCP server:
 
 ```bash
 node ./src/server.js
 ```
+
+This is the classic local transport. The agent host launches the process and communicates via `stdin`/`stdout` with Content-Length framed JSON-RPC (protocol version `2024-11-05`).
+
+### Streamable HTTP transport
+
+The HTTP server exposes a standards-compliant MCP Streamable HTTP endpoint at `/mcp` (protocol version `2025-03-26`). This enables remote MCP access over HTTP.
+
+```bash
+node ./src/http-server.js
+# MCP endpoint: http://127.0.0.1:8787/mcp
+```
+
+Supported methods on `/mcp`:
+
+- `POST` — JSON-RPC requests, notifications, and batches
+- `DELETE` — session termination
+- `GET` — SSE stream (returns 405; no server-initiated messages currently)
+- `OPTIONS` — CORS preflight
+
+Session flow:
+
+1. Client sends `POST /mcp` with `initialize` request → receives `Mcp-Session-Id` header
+2. Client sends `POST /mcp` with `initialized` notification (include `Mcp-Session-Id`)
+3. Subsequent requests include `Mcp-Session-Id` header
+4. Client sends `DELETE /mcp` with `Mcp-Session-Id` to terminate the session
 
 Default meta tools:
 
@@ -165,6 +194,8 @@ node ./src/http-server.js
 
 By default it listens on `http://127.0.0.1:8787`.
 
+The server exposes both the MCP Streamable HTTP transport at `/mcp` (see above) and the following REST API:
+
 Endpoints:
 
 - `GET /healthz`
@@ -188,6 +219,44 @@ curl -X POST http://127.0.0.1:8787/v1/setup -H 'content-type: application/json' 
 ```
 
 SSE clients can subscribe to `/v1/events` to receive progress events for setup and request execution.
+
+## Docker
+
+Build the image:
+
+```bash
+docker build -t xco-mcp-server .
+```
+
+Run the HTTP server (serves REST API + MCP Streamable HTTP on `/mcp`):
+
+```bash
+docker run -d -p 8787:8787 \
+  -e XCO_PASSWORD=your-password \
+  xco-mcp-server
+```
+
+Run in MCP stdio mode:
+
+```bash
+docker run --rm -i \
+  -e XCO_PASSWORD=your-password \
+  xco-mcp-server src/server.js
+```
+
+Typical MCP client wiring for Docker:
+
+```json
+{
+  "command": "docker",
+  "args": ["run", "--rm", "-i", "xco-mcp-server", "src/server.js"],
+  "env": {
+    "XCO_PASSWORD": "your-xco-password"
+  }
+}
+```
+
+For Kubernetes deployment, see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Runtime Configuration
 
