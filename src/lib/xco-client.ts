@@ -2,7 +2,7 @@ import { URL } from "node:url";
 
 import type { EventListener, OperationInfo, RawRequestInput, XcoConfig, XcoResponse } from "../types.js";
 import { encodeQueryValue, ensureObject } from "./utils.js";
-import { tryParseJson } from "./json.js";
+import { isParseFailure, tryParseJson } from "./json.js";
 
 interface OperationArgs {
   body?: unknown;
@@ -143,7 +143,7 @@ export async function executeOperation(
   const responseContentType = response.headers.get("content-type") ?? "";
   const responseText = await response.text();
   const responseBody = responseContentType.includes("json")
-    ? (tryParseJson(responseText) ?? responseText)
+    ? (() => { const parsed = tryParseJson(responseText); return isParseFailure(parsed) ? responseText : parsed; })()
     : responseText;
 
   return {
@@ -189,7 +189,7 @@ export async function executeRawRequest(config: XcoConfig, token: string | null,
   const responseContentType = response.headers.get("content-type") ?? "";
   const responseText = await response.text();
   const responseBody = responseContentType.includes("json")
-    ? (tryParseJson(responseText) ?? responseText)
+    ? (() => { const parsed = tryParseJson(responseText); return isParseFailure(parsed) ? responseText : parsed; })()
     : responseText;
 
   return {

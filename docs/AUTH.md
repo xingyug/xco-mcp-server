@@ -12,13 +12,13 @@ Use this when your environment already issues a bearer token:
 ```bash
 export XCO_BASE_URL=https://xco.company.example
 export XCO_TOKEN=your-token
-node ./src/server.js
+node ./dist/src/server.js
 ```
 
 Or persist the token environment variable name in local config:
 
 ```bash
-node ./src/cli.js use-version --version 3.7.0 --token-env XCO_TOKEN
+node ./dist/src/cli.js use-version --version 3.7.0 --token-env XCO_TOKEN
 ```
 
 ## Username And Password
@@ -30,13 +30,13 @@ Recommended pattern:
 ```bash
 export XCO_USERNAME=admin
 export XCO_PASSWORD='secret'
-node ./src/cli.js auth login --base-url https://xco.company.example --username-env XCO_USERNAME --password-env XCO_PASSWORD --persist-config true
+node ./dist/src/cli.js auth login --base-url https://xco.company.example --username-env XCO_USERNAME --password-env XCO_PASSWORD --persist-config true
 ```
 
 Direct credentials also work for a one-off login:
 
 ```bash
-node ./src/cli.js auth login --base-url https://xco.company.example --username admin --password 'secret'
+node ./dist/src/cli.js auth login --base-url https://xco.company.example --username admin --password 'secret'
 ```
 
 The runtime stores cached sessions in `.xco/session.json` by default. Session keys are scoped by:
@@ -59,9 +59,9 @@ For operations that require bearer auth, the runtime does the following:
 ## CLI Commands
 
 ```bash
-node ./src/cli.js auth status
-node ./src/cli.js auth login --username admin --password 'secret'
-node ./src/cli.js auth logout
+node ./dist/src/cli.js auth status
+node ./dist/src/cli.js auth login --username admin --password 'secret'
+node ./dist/src/cli.js auth logout
 ```
 
 ## HTTP Endpoints

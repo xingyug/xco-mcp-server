@@ -332,3 +332,40 @@ test("getTunnelSettings trims whitespace from per-hop passwords", () => {
   );
   assert.deepEqual(settings.passwords, ["pass1", "pass2"]);
 });
+
+test("parseBastionJumps rejects shell metacharacters", () => {
+  assert.throws(
+    () => parseBastionJumps("user@host; rm -rf /"),
+    /Invalid bastion jump host format/,
+  );
+  assert.throws(
+    () => parseBastionJumps("user@host$(cmd)"),
+    /Invalid bastion jump host format/,
+  );
+  assert.throws(
+    () => parseBastionJumps("user@host`cmd`"),
+    /Invalid bastion jump host format/,
+  );
+});
+
+test("parseBastionJumps accepts valid formats", () => {
+  assert.deepEqual(parseBastionJumps("ops@192.168.1.1"), ["ops@192.168.1.1"]);
+  assert.deepEqual(parseBastionJumps("user@host:22"), ["user@host:22"]);
+  assert.deepEqual(parseBastionJumps("user@[::1]"), ["user@[::1]"]);
+});
+
+test("deriveTunnelTarget rejects invalid port", () => {
+  const settings = { jumps: ["user@host"], targetPort: "abc" } as unknown as TunnelSettings;
+  assert.throws(
+    () => deriveTunnelTarget("http://example.com", settings),
+    /Invalid target port/,
+  );
+});
+
+test("deriveTunnelTarget rejects out-of-range port", () => {
+  const settings = { jumps: ["user@host"], targetPort: "99999" } as unknown as TunnelSettings;
+  assert.throws(
+    () => deriveTunnelTarget("http://example.com", settings),
+    /Invalid target port/,
+  );
+});

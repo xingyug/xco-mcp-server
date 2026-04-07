@@ -173,8 +173,8 @@ export function ensureObject(value: unknown, label: string): Record<string, unkn
 }
 
 export function toAbsolutePath(cwd: string, value: string | null | undefined): string | null {
-  if (!value) {
-    return value as null;
+  if (value === null || value === undefined || value === "") {
+    return null;
   }
 
   if (value === "~") {

@@ -14,6 +14,7 @@ All three entry points share the same local config, cached bundles, auth session
 
 ```bash
 npm install
+npm run build
 ```
 
 Node `>=22` is required.
@@ -23,13 +24,13 @@ Node `>=22` is required.
 Download and activate an XCO version from the official documentation site:
 
 ```bash
-node ./src/cli.js setup --version 3.7.0 --base-url https://xco.company.example
+node ./dist/src/cli.js setup --version 3.7.0 --base-url https://xco.company.example
 ```
 
 If your instance exposes its own `/docs` page or a direct Redoc/OpenAPI endpoint, you can use that instead:
 
 ```bash
-node ./src/cli.js setup \
+node ./dist/src/cli.js setup \
   --version 3.7.0 \
   --base-url https://xco.company.example \
   --spec-source instance \
@@ -39,7 +40,7 @@ node ./src/cli.js setup \
 Auto mode tries instance docs first and then falls back to the official docs:
 
 ```bash
-node ./src/cli.js setup \
+node ./dist/src/cli.js setup \
   --version 3.7.1 \
   --base-url https://xco.company.example \
   --spec-source auto
@@ -48,13 +49,13 @@ node ./src/cli.js setup \
 Switch to an already cached version:
 
 ```bash
-node ./src/cli.js use-version --version 4.0.0
+node ./dist/src/cli.js use-version --version 4.0.0
 ```
 
 Discover published versions from the official support index:
 
 ```bash
-node ./src/cli.js versions --remote
+node ./dist/src/cli.js versions --remote
 ```
 
 For official docs, patch releases do not fetch their own support pages anymore. The downloader maps `x.y.z` patch releases to the corresponding `x.y.0` docs set, for example `3.2.1 -> 3.2.0` and `3.8.7 -> 3.8.0`.
@@ -66,14 +67,14 @@ Readonly mode hides generated write operations and blocks non-read raw requests.
 Persist readonly mode into local config:
 
 ```bash
-node ./src/cli.js use-version --version 3.7.0 --readonly true
+node ./dist/src/cli.js use-version --version 3.7.0 --readonly true
 ```
 
 Or set it through the environment:
 
 ```bash
 export XCO_READONLY=true
-node ./src/server.js
+node ./dist/src/server.js
 ```
 
 Readonly mode still keeps the operational meta tools available, including:
@@ -89,7 +90,7 @@ If your XCO instance is reachable only through one or more jump hosts, the runti
 Single bastion example:
 
 ```bash
-node ./src/cli.js use-version \
+node ./dist/src/cli.js use-version \
   --version 3.7.0 \
   --base-url https://xco.company.example \
   --bastion-jumps ops@bastion1 \
@@ -99,7 +100,7 @@ node ./src/cli.js use-version \
 Multi-hop example:
 
 ```bash
-node ./src/cli.js use-version \
+node ./dist/src/cli.js use-version \
   --version 3.7.0 \
   --base-url https://xco.company.example \
   --bastion-jumps ops@jump1,ops@jump2 \
@@ -140,7 +141,7 @@ Recommended pattern:
 
 ```bash
 export XCO_BASTION_PASSWORD='secret'
-node ./src/cli.js use-version \
+node ./dist/src/cli.js use-version \
   --version 3.7.0 \
   --bastion-jumps ops@jump1,ops@jump2 \
   --bastion-password-auth true \
@@ -155,7 +156,7 @@ When each jump host in a multi-hop chain requires a different password, you can 
 ```bash
 export HOP1_PASS='password-for-jump1'
 export HOP2_PASS='password-for-jump2'
-node ./src/cli.js use-version \
+node ./dist/src/cli.js use-version \
   --version 3.7.0 \
   --bastion-jumps ops@jump1,ops@jump2 \
   --bastion-password-auth true \
@@ -197,7 +198,7 @@ export XCO_TLS_REJECT_UNAUTHORIZED=0
 Or pass it via CLI:
 
 ```bash
-node ./src/cli.js call tenant__gettenants --tls-reject-unauthorized 0
+node ./dist/src/cli.js call tenant__gettenants --tls-reject-unauthorized 0
 ```
 
 This sets `NODE_TLS_REJECT_UNAUTHORIZED=0` for all HTTPS requests made by the runtime. **Use only in trusted networks** — disabling TLS validation removes protection against man-in-the-middle attacks.
@@ -205,7 +206,7 @@ This sets `NODE_TLS_REJECT_UNAUTHORIZED=0` for all HTTPS requests made by the ru
 ## MCP
 
 ```bash
-node ./src/server.js
+node ./dist/src/server.js
 ```
 
 Useful meta tools:
@@ -222,16 +223,16 @@ Useful meta tools:
 ## CLI
 
 ```bash
-node ./src/cli.js describe
-node ./src/cli.js tools
-node ./src/cli.js call tenant_service__gettenants --json '{}'
-node ./src/cli.js raw --method GET --service-prefix /v1/tenant --path /tenants
+node ./dist/src/cli.js describe
+node ./dist/src/cli.js tools
+node ./dist/src/cli.js call tenant_service__gettenants --json '{}'
+node ./dist/src/cli.js raw --method GET --service-prefix /v1/tenant --path /tenants
 ```
 
 ## HTTP + SSE
 
 ```bash
-node ./src/http-server.js
+node ./dist/src/http-server.js
 ```
 
 Default listen address:
@@ -262,7 +263,7 @@ SSE subscribers can attach to `/v1/events` to receive progress events for setup,
 For environments that block MCP servers, prefer wrapping the CLI:
 
 ```bash
-node ./src/cli.js call xco_describe_bundle --json '{}'
+node ./dist/src/cli.js call xco_describe_bundle --json '{}'
 ```
 
 If local HTTP is allowed, wrappers can call the HTTP server and consume SSE progress:

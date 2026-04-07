@@ -10,15 +10,15 @@ The commands below are written with environment variables so you can use the sam
 
 Validated locally:
 
-- `npm install`
+- `npm install` and `npm run build`
 - `setup` in `official` mode
 - `use-version` with multi-hop bastion config
 - `auth login`
 - `auth status`
 - `describe`
 - one safe generated read call
-- `node ./src/server.js`
-- `node ./src/http-server.js` plus `/healthz`
+- `node ./dist/src/server.js`
+- `node ./dist/src/http-server.js` plus `/healthz`
 
 ## 1. Choose Your Working Variables
 
@@ -49,6 +49,7 @@ Notes:
 
 ```bash
 npm install
+npm run build
 ```
 
 Node `>=22` is required.
@@ -58,7 +59,7 @@ Node `>=22` is required.
 Recommended first-run command:
 
 ```bash
-node ./src/cli.js setup \
+node ./dist/src/cli.js setup \
   --version "$XCO_VERSION" \
   --base-url "$XCO_BASE_URL"
 ```
@@ -78,7 +79,7 @@ If your XCO instance exposes `/docs/` and you want to use the live instance docs
 ## 4. Persist Runtime Connection Settings
 
 ```bash
-node ./src/cli.js use-version \
+node ./dist/src/cli.js use-version \
   --version "$XCO_VERSION" \
   --base-url "$XCO_BASE_URL" \
   --username-env XCO_USERNAME \
@@ -95,7 +96,7 @@ If you have direct access to XCO, omit the `--bastion-*` flags.
 Optional readonly mode:
 
 ```bash
-node ./src/cli.js use-version \
+node ./dist/src/cli.js use-version \
   --version "$XCO_VERSION" \
   --readonly true
 ```
@@ -105,7 +106,7 @@ node ./src/cli.js use-version \
 ## 5. Create A Cached Login Session
 
 ```bash
-node ./src/cli.js auth login \
+node ./dist/src/cli.js auth login \
   --base-url "$XCO_BASE_URL" \
   --username-env XCO_USERNAME \
   --password-env XCO_PASSWORD \
@@ -119,27 +120,27 @@ This creates or refreshes the cached session in `"$XCO_HOME/session.json"`.
 Check auth state:
 
 ```bash
-node ./src/cli.js auth status
+node ./dist/src/cli.js auth status
 ```
 
 Check the active bundle and loaded services:
 
 ```bash
-node ./src/cli.js describe
+node ./dist/src/cli.js describe
 ```
 
 Run one safe generated read call:
 
 ```bash
-node ./src/cli.js call tenant_service__gethealth --json '{}'
+node ./dist/src/cli.js call tenant_service__gethealth --json '{}'
 ```
 
-If your chosen version does not expose `tenant_service__gethealth`, run `node ./src/cli.js tools` and pick any safe `GET` operation from the generated list.
+If your chosen version does not expose `tenant_service__gethealth`, run `node ./dist/src/cli.js tools` and pick any safe `GET` operation from the generated list.
 
 ## 7. Start The MCP Server
 
 ```bash
-node ./src/server.js
+node ./dist/src/server.js
 ```
 
 This is the process your coding agent should launch as the MCP server.
@@ -149,7 +150,7 @@ Typical MCP client wiring looks like this:
 ```json
 {
   "command": "node",
-  "args": ["/absolute/path/to/xco-mcp-server/src/server.js"],
+  "args": ["/absolute/path/to/xco-mcp-server/dist/src/server.js"],
   "cwd": "/absolute/path/to/xco-mcp-server",
   "env": {
     "XCO_HOME": "/absolute/path/to/xco-home",
@@ -162,7 +163,7 @@ Typical MCP client wiring looks like this:
 The exact JSON shape depends on the MCP client, but the important part is:
 
 - `command` points to `node`
-- `args` points to `src/server.js`
+- `args` points to `dist/src/server.js`
 - `cwd` points to the repo root
 - `env` injects runtime secrets that are not written into `config.json`
 
@@ -171,7 +172,7 @@ The exact JSON shape depends on the MCP client, but the important part is:
 If your agent needs remote MCP access rather than local stdio, use the HTTP server which exposes both the REST API and MCP Streamable HTTP on `/mcp`:
 
 ```bash
-node ./src/http-server.js
+node ./dist/src/http-server.js
 # MCP endpoint: http://127.0.0.1:8787/mcp
 ```
 
@@ -196,7 +197,7 @@ For stdio MCP via Docker:
 ```json
 {
   "command": "docker",
-  "args": ["run", "--rm", "-i", "xco-mcp-server", "src/server.js"],
+  "args": ["run", "--rm", "-i", "xco-mcp-server", "dist/src/server.js"],
   "env": {
     "XCO_PASSWORD": "your-xco-password"
   }
@@ -208,7 +209,7 @@ For stdio MCP via Docker:
 If your agent environment blocks MCP servers but allows local HTTP:
 
 ```bash
-node ./src/http-server.js
+node ./dist/src/http-server.js
 ```
 
 Basic check:

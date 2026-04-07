@@ -35,6 +35,7 @@ Nothing under `docs/` is copied from Extreme Networks. Those files are project-a
 
 ```bash
 npm install
+npm run build
 ```
 
 Node `>=22` is required.
@@ -46,13 +47,13 @@ If you are bringing up a brand-new MCP instance from zero, start with [docs/QUIC
 Download and activate a version from the official docs:
 
 ```bash
-node ./src/cli.js setup --version 3.7.0 --base-url https://xco.company.example
+node ./dist/src/cli.js setup --version 3.7.0 --base-url https://xco.company.example
 ```
 
 Use instance docs instead of the official site:
 
 ```bash
-node ./src/cli.js setup \
+node ./dist/src/cli.js setup \
   --version 3.7.0 \
   --base-url https://xco.company.example \
   --spec-source instance \
@@ -62,7 +63,7 @@ node ./src/cli.js setup \
 Use auto mode to try the instance first and fall back to the official docs:
 
 ```bash
-node ./src/cli.js setup \
+node ./dist/src/cli.js setup \
   --version 3.7.1 \
   --base-url https://xco.company.example \
   --spec-source auto
@@ -77,19 +78,19 @@ For the first end-to-end bootstrap on a new MCP instance, including auth, bastio
 Switch to an already downloaded version:
 
 ```bash
-node ./src/cli.js use-version --version 4.0.0
+node ./dist/src/cli.js use-version --version 4.0.0
 ```
 
 List installed versions:
 
 ```bash
-node ./src/cli.js versions
+node ./dist/src/cli.js versions
 ```
 
 Discover remote versions from the docs site:
 
 ```bash
-node ./src/cli.js versions --remote
+node ./dist/src/cli.js versions --remote
 ```
 
 Detailed runtime guidance is collected in the documentation links near the end of this README.
@@ -99,33 +100,33 @@ Detailed runtime guidance is collected in the documentation links near the end o
 Describe the active bundle:
 
 ```bash
-node ./src/cli.js describe
+node ./dist/src/cli.js describe
 ```
 
 List generated tools:
 
 ```bash
-node ./src/cli.js tools
+node ./dist/src/cli.js tools
 ```
 
 Call one generated tool:
 
 ```bash
-node ./src/cli.js call tenant_service__gettenants --json '{}'
+node ./dist/src/cli.js call tenant_service__gettenants --json '{}'
 ```
 
 Send a raw request:
 
 ```bash
-node ./src/cli.js raw --method GET --service-prefix /v1/tenant --path /tenants
+node ./dist/src/cli.js raw --method GET --service-prefix /v1/tenant --path /tenants
 ```
 
 Auth commands:
 
 ```bash
-node ./src/cli.js auth status
-node ./src/cli.js auth login --username admin --password 'secret'
-node ./src/cli.js auth logout
+node ./dist/src/cli.js auth status
+node ./dist/src/cli.js auth login --username admin --password 'secret'
+node ./dist/src/cli.js auth logout
 ```
 
 ## MCP Usage
@@ -135,7 +136,7 @@ node ./src/cli.js auth logout
 Start the stdio MCP server:
 
 ```bash
-node ./src/server.js
+node ./dist/src/server.js
 ```
 
 This is the classic local transport. The agent host launches the process and communicates via `stdin`/`stdout` with Content-Length framed JSON-RPC (protocol version `2024-11-05`).
@@ -145,7 +146,7 @@ This is the classic local transport. The agent host launches the process and com
 The HTTP server exposes a standards-compliant MCP Streamable HTTP endpoint at `/mcp` (protocol version `2025-03-26`). This enables remote MCP access over HTTP.
 
 ```bash
-node ./src/http-server.js
+node ./dist/src/http-server.js
 # MCP endpoint: http://127.0.0.1:8787/mcp
 ```
 
@@ -191,7 +192,7 @@ tenant_service__gettenants
 Start the HTTP server:
 
 ```bash
-node ./src/http-server.js
+node ./dist/src/http-server.js
 ```
 
 By default it listens on `http://127.0.0.1:8787`.
@@ -243,7 +244,7 @@ Run in MCP stdio mode:
 ```bash
 docker run --rm -i \
   -e XCO_PASSWORD=your-password \
-  xco-mcp-server src/server.js
+  xco-mcp-server dist/src/server.js
 ```
 
 Typical MCP client wiring for Docker:
@@ -251,7 +252,7 @@ Typical MCP client wiring for Docker:
 ```json
 {
   "command": "docker",
-  "args": ["run", "--rm", "-i", "xco-mcp-server", "src/server.js"],
+  "args": ["run", "--rm", "-i", "xco-mcp-server", "dist/src/server.js"],
   "env": {
     "XCO_PASSWORD": "your-xco-password"
   }

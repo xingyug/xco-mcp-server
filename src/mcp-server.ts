@@ -86,12 +86,27 @@ export async function runMcpServer(): Promise<void> {
   const { dispatch } = createMcpDispatch(runtime, PROTOCOL_VERSION);
 
   const read = createMessageReader(async (message) => {
+    // Skip notifications (has method, no id)
     if (message.method && message.id === undefined) {
       return;
     }
 
+    // Guard against malformed JSON-RPC messages without a method
+    if (!message.method) {
+      if (message.id !== undefined) {
+        process.stdout.write(
+          encodeMessage({
+            jsonrpc: "2.0",
+            id: message.id,
+            error: createJsonRpcError(-32600, "Invalid Request: missing method"),
+          }),
+        );
+      }
+      return;
+    }
+
     try {
-      const result = await dispatch(message.method!, message.params);
+      const result = await dispatch(message.method, message.params);
       process.stdout.write(
         encodeMessage({
           jsonrpc: "2.0",

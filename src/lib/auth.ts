@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import type { AuthSession, SessionStore, SessionSummary } from "../types.js";
-import { tryParseJson, writeJson } from "./json.js";
+import { isParseFailure, tryParseJson, writeJson } from "./json.js";
 
 export function buildSessionKey({ version, baseUrl, username }: { version?: string | null; baseUrl?: string | null; username?: string | null }): string {
   return JSON.stringify({
@@ -47,7 +47,11 @@ export function decodeJwtPayload(token: string | null | undefined): Record<strin
     return null;
   }
 
-  return tryParseJson(decodeBase64Url(parts[1])) as Record<string, unknown> | null;
+  const parsed = tryParseJson(decodeBase64Url(parts[1]));
+  if (isParseFailure(parsed) || typeof parsed !== "object" || parsed === null) {
+    return null;
+  }
+  return parsed as Record<string, unknown>;
 }
 
 export function getTokenExpiresAt(token: string | null | undefined): string | null {

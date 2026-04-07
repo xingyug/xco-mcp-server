@@ -107,19 +107,29 @@ function resolveBastionPasswords(config: XcoConfig, overrides: ConfigOverrides =
   return { passwords: [], explicit: false };
 }
 
+const JUMP_HOST_PATTERN = /^[a-zA-Z0-9._@:[\]-]+$/;
+
 export function parseBastionJumps(value: unknown): string[] {
   if (!value) {
     return [];
   }
 
-  if (Array.isArray(value)) {
-    return value.map((item) => String(item).trim()).filter(Boolean);
+  const raw = Array.isArray(value)
+    ? value.map((item) => String(item).trim()).filter(Boolean)
+    : String(value)
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+  for (const jump of raw) {
+    if (!JUMP_HOST_PATTERN.test(jump)) {
+      throw new Error(
+        `Invalid bastion jump host format: ${jump} — must match user@host or host (no shell metacharacters)`,
+      );
+    }
   }
 
-  return String(value)
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
+  return raw;
 }
 
 export function getTunnelSettings(config: XcoConfig, overrides: ConfigOverrides = {}): TunnelSettings {
@@ -182,13 +192,17 @@ export function hasTunnelConfigured(config: XcoConfig, overrides: ConfigOverride
 export function deriveTunnelTarget(logicalBaseUrl: string, settings: TunnelSettings): { targetHost: string; targetPort: number } {
   const url = new URL(logicalBaseUrl);
   const parsedPort = url.port ? Number(url.port) : null;
+  const targetPort = Number(
+    settings.targetPort ??
+      parsedPort ??
+      (url.protocol === "http:" ? 80 : 443),
+  );
+  if (!Number.isFinite(targetPort) || targetPort < 1 || targetPort > 65535) {
+    throw new Error(`Invalid target port: ${settings.targetPort ?? url.port}`);
+  }
   return {
     targetHost: settings.targetHost ?? url.hostname,
-    targetPort: Number(
-      settings.targetPort ??
-        parsedPort ??
-        (url.protocol === "http:" ? 80 : 443),
-    ),
+    targetPort,
   };
 }
 

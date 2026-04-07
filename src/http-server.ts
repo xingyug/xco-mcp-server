@@ -31,7 +31,8 @@ function readBody(req: IncomingMessage): Promise<string> {
     req.on("data", (chunk: string) => {
       bytes += Buffer.byteLength(chunk, "utf8");
       if (bytes > MAX_BODY_BYTES) {
-        req.destroy(new Error("Request body too large."));
+        req.destroy();
+        reject(new Error("Request body too large."));
         return;
       }
       body += chunk;

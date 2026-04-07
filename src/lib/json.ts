@@ -23,10 +23,16 @@ export function parseJsonText(text: string, label = "JSON"): unknown {
   }
 }
 
+const PARSE_FAILED = Symbol("parse-failed");
+
 export function tryParseJson(text: string): unknown {
   try {
     return JSON.parse(text);
   } catch {
-    return null;
+    return PARSE_FAILED;
   }
+}
+
+export function isParseFailure(value: unknown): boolean {
+  return value === PARSE_FAILED;
 }
