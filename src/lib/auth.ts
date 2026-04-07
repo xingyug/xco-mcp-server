@@ -1,9 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import type { AuthSession, SessionStore, SessionSummary } from "../types.js";
 import { tryParseJson, writeJson } from "./json.js";
 
-export function buildSessionKey({ version, baseUrl, username }) {
+export function buildSessionKey({ version, baseUrl, username }: { version?: string | null; baseUrl?: string | null; username?: string | null }): string {
   return JSON.stringify({
     version: version ?? "",
     baseUrl: baseUrl ?? "",
@@ -11,7 +12,7 @@ export function buildSessionKey({ version, baseUrl, username }) {
   });
 }
 
-export function maskToken(token) {
+export function maskToken(token: string | null | undefined): string | null {
   if (!token) {
     return null;
   }
@@ -27,7 +28,7 @@ export function maskToken(token) {
   return `${token.slice(0, 8)}...${token.slice(-8)}`;
 }
 
-function decodeBase64Url(value) {
+function decodeBase64Url(value: string): string {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalized.padEnd(
     normalized.length + ((4 - (normalized.length % 4)) % 4),
@@ -36,7 +37,7 @@ function decodeBase64Url(value) {
   return Buffer.from(padded, "base64").toString("utf8");
 }
 
-export function decodeJwtPayload(token) {
+export function decodeJwtPayload(token: string | null | undefined): Record<string, unknown> | null {
   if (!token || typeof token !== "string") {
     return null;
   }
@@ -46,10 +47,10 @@ export function decodeJwtPayload(token) {
     return null;
   }
 
-  return tryParseJson(decodeBase64Url(parts[1]));
+  return tryParseJson(decodeBase64Url(parts[1])) as Record<string, unknown> | null;
 }
 
-export function getTokenExpiresAt(token) {
+export function getTokenExpiresAt(token: string | null | undefined): string | null {
   const payload = decodeJwtPayload(token);
   if (!payload || typeof payload.exp !== "number") {
     return null;
@@ -58,7 +59,7 @@ export function getTokenExpiresAt(token) {
   return new Date(payload.exp * 1000).toISOString();
 }
 
-export function isExpired(expiresAt, skewSeconds = 30) {
+export function isExpired(expiresAt: string | null | undefined, skewSeconds = 30): boolean {
   if (!expiresAt) {
     return false;
   }
@@ -66,11 +67,11 @@ export function isExpired(expiresAt, skewSeconds = 30) {
   return Date.now() >= new Date(expiresAt).getTime() - skewSeconds * 1000;
 }
 
-async function readSessionStore(sessionPath) {
+async function readSessionStore(sessionPath: string): Promise<SessionStore> {
   try {
-    return JSON.parse(await fs.readFile(sessionPath, "utf8"));
+    return JSON.parse(await fs.readFile(sessionPath, "utf8")) as SessionStore;
   } catch (error) {
-    if (error.code === "ENOENT" || error instanceof SyntaxError) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT" || error instanceof SyntaxError) {
       return { sessions: {} };
     }
 
@@ -78,17 +79,17 @@ async function readSessionStore(sessionPath) {
   }
 }
 
-async function writeSessionStore(sessionPath, store) {
+async function writeSessionStore(sessionPath: string, store: SessionStore): Promise<void> {
   await fs.mkdir(path.dirname(sessionPath), { recursive: true });
   await writeJson(sessionPath, store);
 }
 
-export async function readSession(sessionPath, key) {
+export async function readSession(sessionPath: string, key: string): Promise<AuthSession | null> {
   const store = await readSessionStore(sessionPath);
   return store.sessions?.[key] ?? null;
 }
 
-export async function writeSession(sessionPath, key, session) {
+export async function writeSession(sessionPath: string, key: string, session: AuthSession): Promise<AuthSession> {
   const store = await readSessionStore(sessionPath);
   store.sessions ??= {};
   store.sessions[key] = session;
@@ -96,7 +97,7 @@ export async function writeSession(sessionPath, key, session) {
   return session;
 }
 
-export async function deleteSession(sessionPath, key) {
+export async function deleteSession(sessionPath: string, key: string): Promise<void> {
   const store = await readSessionStore(sessionPath);
   if (store.sessions?.[key]) {
     delete store.sessions[key];
@@ -104,7 +105,7 @@ export async function deleteSession(sessionPath, key) {
   }
 }
 
-export function summarizeSession(session) {
+export function summarizeSession(session: AuthSession | null): SessionSummary {
   if (!session) {
     return {
       cached: false,

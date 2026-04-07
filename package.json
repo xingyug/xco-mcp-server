@@ -1,24 +1,26 @@
 {
   "name": "xco-mcp-server",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Multi-entry MCP/CLI/HTTP server for ExtremeCloud Orchestrator OpenAPI bundles",
   "type": "module",
   "bin": {
-    "xco-call": "./src/cli.js",
-    "xco-http-server": "./src/http-server.js",
-    "xco-mcp-server": "./src/server.js"
+    "xco-call": "./dist/src/cli.js",
+    "xco-http-server": "./dist/src/http-server.js",
+    "xco-mcp-server": "./dist/src/server.js"
   },
   "scripts": {
-    "setup:3.7.0": "node ./src/cli.js setup --version 3.7.0",
-    "start": "node ./src/server.js",
-    "start:http": "node ./src/http-server.js",
-    "test": "node --test"
+    "build": "tsc",
+    "setup:3.7.0": "node ./dist/src/cli.js setup --version 3.7.0",
+    "start": "node ./dist/src/server.js",
+    "start:http": "node ./dist/src/http-server.js",
+    "test": "npm run build && node --test 'dist/test/*.test.js'",
+    "test:unit": "npm run build && node --test 'dist/test/*.test.js'"
   },
   "engines": {
     "node": ">=22"
   },
   "files": [
-    "src/",
+    "dist/",
     "specs/",
     "LICENSE",
     "NOTICE",
@@ -41,5 +43,9 @@
     "sse",
     "ssh-tunnel"
   ],
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "typescript": "^6.0.2"
+  }
 }

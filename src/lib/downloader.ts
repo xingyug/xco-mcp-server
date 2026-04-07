@@ -1,6 +1,15 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import type {
+  DownloadOptions,
+  EventListener,
+  FetchTextOptions,
+  Manifest,
+  ManifestService,
+  OpenApiDocument,
+  ServiceReference,
+} from "../types.js";
 import { tryParseJson, writeJson } from "./json.js";
 import {
   buildSupportDocsUrl,
@@ -12,11 +21,11 @@ import {
 
 const ANCHOR_REGEX = /<a\b[^>]*href=(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gim;
 
-function stripHtml(fragment) {
+function stripHtml(fragment: string): string {
   return summarizeText(String(fragment ?? "").replace(/<[^>]+>/g, " "));
 }
 
-function normalizeSpecSource(value) {
+function normalizeSpecSource(value: unknown): string {
   const normalized = String(value ?? "official")
     .trim()
     .toLowerCase();
@@ -29,7 +38,7 @@ function normalizeSpecSource(value) {
   );
 }
 
-function resolveDocumentUrl(href, pageUrl) {
+function resolveDocumentUrl(href: string, pageUrl: string): string | null {
   if (!href || /^javascript:/i.test(href) || href.startsWith("#")) {
     return null;
   }
@@ -41,17 +50,17 @@ function resolveDocumentUrl(href, pageUrl) {
   }
 }
 
-function isOpenApiSpec(value) {
+function isOpenApiSpec(value: unknown): value is OpenApiDocument {
   return Boolean(
     value &&
     typeof value === "object" &&
     !Array.isArray(value) &&
-    value.paths &&
-    (typeof value.openapi === "string" || typeof value.swagger === "string"),
+    (value as Record<string, unknown>).paths &&
+    (typeof (value as Record<string, unknown>).openapi === "string" || typeof (value as Record<string, unknown>).swagger === "string"),
   );
 }
 
-function parseSemver(value) {
+function parseSemver(value: unknown): { major: number; minor: number; patch: number } | null {
   const match = String(value ?? "")
     .trim()
     .match(/^(\d+)\.(\d+)\.(\d+)$/);
@@ -66,7 +75,7 @@ function parseSemver(value) {
   };
 }
 
-export function getOfficialDocsVersion(version) {
+export function getOfficialDocsVersion(version: string): string {
   const parsed = parseSemver(version);
   if (!parsed || parsed.patch === 0) {
     return String(version);
@@ -75,7 +84,7 @@ export function getOfficialDocsVersion(version) {
   return `${parsed.major}.${parsed.minor}.0`;
 }
 
-export async function fetchText(url, options = {}) {
+export async function fetchText(url: string, options: FetchTextOptions = {}): Promise<string> {
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
   if (typeof fetchImpl !== "function") {
     throw new Error("Fetch API is not available in this Node runtime.");
@@ -97,7 +106,7 @@ export async function fetchText(url, options = {}) {
   return await response.text();
 }
 
-export function extractAvailableVersions(supportDocsHtml) {
+export function extractAvailableVersions(supportDocsHtml: string): string[] {
   const matches = supportDocsHtml.match(/Version\s+(\d+\.\d+\.\d+)/g) ?? [];
   return Array.from(
     new Set(matches.map((match) => match.replace(/^Version\s+/i, "").trim())),
@@ -105,11 +114,11 @@ export function extractAvailableVersions(supportDocsHtml) {
 }
 
 export function extractServiceReferences(
-  supportDocsHtml,
+  supportDocsHtml: string,
   fetchPageUrl = "https://placeholder.local/",
   publicPageUrl = fetchPageUrl,
-) {
-  const references = [];
+): ServiceReference[] {
+  const references: ServiceReference[] = [];
 
   for (const match of supportDocsHtml.matchAll(ANCHOR_REGEX)) {
     const fetchUrl = resolveDocumentUrl(match[2], fetchPageUrl);
@@ -135,10 +144,10 @@ export function extractServiceReferences(
     });
   }
 
-  return uniqueBy(references, (item) => item.fetchUrl);
+  return uniqueBy(references, (item) => item.fetchUrl!);
 }
 
-export function extractSpecFromRedocHtml(docHtml) {
+export function extractSpecFromRedocHtml(docHtml: string): OpenApiDocument {
   const marker = "const __redoc_state = ";
   const start = docHtml.indexOf(marker);
   if (start === -1) {
@@ -153,15 +162,15 @@ export function extractSpecFromRedocHtml(docHtml) {
   }
 
   const stateJson = trailingHtml.slice(0, endMatch.index).trim();
-  let state;
+  let state: Record<string, unknown>;
   try {
     state = JSON.parse(stateJson);
   } catch (error) {
     throw new Error(
-      `Failed to parse embedded Redoc state JSON: ${error.message}`,
+      `Failed to parse embedded Redoc state JSON: ${(error as Error).message}`,
     );
   }
-  const spec = state?.spec?.data;
+  const spec = (state?.spec as Record<string, unknown>)?.data as OpenApiDocument | undefined;
 
   if (!spec?.openapi || !spec?.paths) {
     throw new Error("Embedded Redoc state does not contain an OpenAPI spec.");
@@ -170,7 +179,7 @@ export function extractSpecFromRedocHtml(docHtml) {
   return spec;
 }
 
-export function extractSpecFromDocument(documentText) {
+export function extractSpecFromDocument(documentText: string): OpenApiDocument {
   const directSpec = tryParseJson(String(documentText).trim());
   if (isOpenApiSpec(directSpec)) {
     return directSpec;
@@ -179,9 +188,30 @@ export function extractSpecFromDocument(documentText) {
   return extractSpecFromRedocHtml(documentText);
 }
 
-async function discoverSource(version, options = {}) {
+interface DiscoverSourceOptions extends FetchTextOptions {
+  specSource?: string;
+  requestDocsUrl?: string | null;
+  docsUrl?: string | null;
+}
+
+interface DiscoverResult {
+  source: {
+    kind: string;
+    docsVersion?: string;
+    indexUrl: string;
+    publicUrl: string;
+  };
+  references: ServiceReference[];
+}
+
+async function discoverSource(version: string, options: DiscoverSourceOptions = {}): Promise<DiscoverResult | null> {
   const specSource = normalizeSpecSource(options.specSource);
-  const candidates = [];
+  const candidates: Array<{
+    kind: string;
+    docsVersion?: string;
+    indexUrl: string;
+    publicUrl: string;
+  }> = [];
 
   if (specSource === "instance" || specSource === "auto") {
     if (options.requestDocsUrl) {
@@ -209,7 +239,7 @@ async function discoverSource(version, options = {}) {
   }
 
   for (const candidate of candidates) {
-    let indexText;
+    let indexText: string;
     try {
       indexText = await fetchText(candidate.indexUrl, options);
     } catch {
@@ -251,12 +281,12 @@ async function discoverSource(version, options = {}) {
   return null;
 }
 
-export async function downloadVersionBundle(version, options = {}) {
+export async function downloadVersionBundle(version: string, options: DownloadOptions = {}): Promise<Manifest> {
   const xcoHome = options.xcoHome ?? path.join(process.cwd(), ".xco");
   const versionDir = path.join(xcoHome, "versions", version);
   const servicesDir = path.join(versionDir, "services");
   const overwrite = Boolean(options.overwrite);
-  const onEvent = options.onEvent ?? (() => {});
+  const onEvent: EventListener = options.onEvent ?? (() => {});
   const requestedSpecSource = normalizeSpecSource(options.specSource);
 
   onEvent({
@@ -264,7 +294,6 @@ export async function downloadVersionBundle(version, options = {}) {
     phase: "spec-discovery",
     message: `Discovering API docs for XCO ${version}`,
     version,
-    specSource: requestedSpecSource,
   });
 
   const discovered = await discoverSource(version, options);
@@ -276,14 +305,14 @@ export async function downloadVersionBundle(version, options = {}) {
 
   await fs.mkdir(servicesDir, { recursive: true });
 
-  const services = [];
+  const services: ManifestService[] = [];
   for (const reference of discovered.references) {
     const specFileName = `${reference.serviceSlug}.json`;
     const specFilePath = path.join(servicesDir, specFileName);
 
     if (!overwrite) {
       try {
-        const existing = JSON.parse(await fs.readFile(specFilePath, "utf8"));
+        const existing = JSON.parse(await fs.readFile(specFilePath, "utf8")) as OpenApiDocument;
         services.push({
           title: reference.title,
           serviceSlug: reference.serviceSlug,
@@ -292,7 +321,7 @@ export async function downloadVersionBundle(version, options = {}) {
           specTitle: existing?.info?.title ?? null,
           specVersion: existing?.info?.version ?? null,
           operationCount: Object.values(existing?.paths ?? {}).reduce(
-            (count, pathItem) =>
+            (count: number, pathItem) =>
               count +
               Object.keys(pathItem ?? {}).filter((k) => HTTP_METHODS.has(k))
                 .length,
@@ -337,7 +366,7 @@ export async function downloadVersionBundle(version, options = {}) {
       specTitle: spec.info?.title ?? null,
       specVersion: spec.info?.version ?? null,
       operationCount: Object.values(spec.paths ?? {}).reduce(
-        (count, pathItem) =>
+        (count: number, pathItem) =>
           count +
           Object.keys(pathItem ?? {}).filter((k) => HTTP_METHODS.has(k)).length,
         0,
@@ -346,7 +375,7 @@ export async function downloadVersionBundle(version, options = {}) {
     });
   }
 
-  const manifest = {
+  const manifest: Manifest = {
     version,
     requestedSpecSource,
     resolvedSpecSource: discovered.source.kind,

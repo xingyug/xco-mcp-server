@@ -1,9 +1,21 @@
 import { URL } from "node:url";
 
+import type { EventListener, OperationInfo, RawRequestInput, XcoConfig, XcoResponse } from "../types.js";
 import { encodeQueryValue, ensureObject } from "./utils.js";
 import { tryParseJson } from "./json.js";
 
-function replacePathParameters(routePath, args, parameters) {
+interface OperationArgs {
+  body?: unknown;
+  _headers?: Record<string, string>;
+  [key: string]: unknown;
+}
+
+interface ExecuteOptions {
+  baseUrl?: string | null;
+  onEvent?: EventListener;
+}
+
+function replacePathParameters(routePath: string, args: OperationArgs, parameters: OperationInfo["parameters"]): string {
   let output = routePath;
 
   for (const parameter of parameters.filter((item) => item?.in === "path")) {
@@ -21,7 +33,7 @@ function replacePathParameters(routePath, args, parameters) {
   return output;
 }
 
-function mergePath(basePath, leafPath) {
+function mergePath(basePath: string | null | undefined, leafPath: string | null | undefined): string {
   const left = String(basePath ?? "").replace(/\/+$/, "");
   const right = String(leafPath ?? "").replace(/^\/+/, "");
 
@@ -41,7 +53,7 @@ function mergePath(basePath, leafPath) {
   return merged.startsWith("/") ? merged : `/${merged}`;
 }
 
-function buildUrl(baseUrl, operation, args) {
+function buildUrl(baseUrl: string, operation: OperationInfo, args: OperationArgs): URL {
   const url = new URL(baseUrl);
   const pathWithParams = replacePathParameters(
     operation.path,
@@ -64,8 +76,8 @@ function buildUrl(baseUrl, operation, args) {
   return url;
 }
 
-function normalizeHeaders(headers) {
-  const output = {};
+function normalizeHeaders(headers: Record<string, unknown>): Record<string, string> {
+  const output: Record<string, string> = {};
   for (const [key, value] of Object.entries(headers ?? {})) {
     if (value === undefined || value === null) {
       continue;
@@ -77,7 +89,7 @@ function normalizeHeaders(headers) {
   return output;
 }
 
-function buildBody(operation, args) {
+function buildBody(operation: OperationInfo, args: OperationArgs): string | null {
   if (args.body === undefined) {
     return null;
   }
@@ -97,12 +109,12 @@ function buildBody(operation, args) {
 }
 
 export async function executeOperation(
-  config,
-  token,
-  operation,
-  args = {},
-  options = {},
-) {
+  config: XcoConfig,
+  token: string | null,
+  operation: OperationInfo,
+  args: OperationArgs = {},
+  options: ExecuteOptions = {},
+): Promise<XcoResponse> {
   const baseUrl = options.baseUrl ?? config.baseUrl;
   if (!baseUrl) {
     throw new Error(
@@ -140,11 +152,11 @@ export async function executeOperation(
     statusText: response.statusText,
     url: url.toString(),
     headers: responseHeaders,
-    body: responseBody,
+    body: responseBody as Record<string, unknown> | string | null,
   };
 }
 
-export async function executeRawRequest(config, token, input = {}) {
+export async function executeRawRequest(config: XcoConfig, token: string | null, input: RawRequestInput = {}): Promise<XcoResponse> {
   ensureObject(input, "Raw request input");
   const baseUrl = input.baseUrl ?? config.baseUrl;
   if (!baseUrl) {
@@ -186,6 +198,6 @@ export async function executeRawRequest(config, token, input = {}) {
     statusText: response.statusText,
     url: url.toString(),
     headers: responseHeaders,
-    body: responseBody,
+    body: responseBody as Record<string, unknown> | string | null,
   };
 }

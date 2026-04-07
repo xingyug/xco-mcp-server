@@ -2,13 +2,16 @@
 
 import crypto from "node:crypto";
 import http from "node:http";
+import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { createEventBus } from "./lib/event-bus.js";
 import { parseJsonText } from "./lib/json.js";
 import { createRuntime } from "./lib/runtime.js";
 import { createMcpHttpHandler } from "./mcp-http-transport.js";
 
-function sendJson(res, statusCode, payload) {
+import type { EventListener } from "./types.js";
+
+function sendJson(res: ServerResponse, statusCode: number, payload: unknown): void {
   const body = `${JSON.stringify(payload, null, 2)}\n`;
   res.writeHead(statusCode, {
     "access-control-allow-origin": "*",
@@ -20,12 +23,12 @@ function sendJson(res, statusCode, payload) {
 
 const MAX_BODY_BYTES = 10 * 1024 * 1024;
 
-function readBody(req) {
+function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let body = "";
     let bytes = 0;
     req.setEncoding("utf8");
-    req.on("data", (chunk) => {
+    req.on("data", (chunk: string) => {
       bytes += Buffer.byteLength(chunk, "utf8");
       if (bytes > MAX_BODY_BYTES) {
         req.destroy(new Error("Request body too large."));
@@ -38,14 +41,14 @@ function readBody(req) {
   });
 }
 
-async function main() {
+async function main(): Promise<void> {
   const runtime = await createRuntime();
   const eventBus = createEventBus();
   const handleMcp = createMcpHttpHandler(runtime);
   const host = process.env.XCO_HTTP_HOST ?? "127.0.0.1";
   const port = Number.parseInt(process.env.XCO_HTTP_PORT ?? "8787", 10);
 
-  const server = http.createServer(async (req, res) => {
+  const server = http.createServer(async (req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(
       req.url ?? "/",
       `http://${req.headers.host ?? "localhost"}`,
@@ -79,7 +82,7 @@ async function main() {
       try {
         sendJson(res, 200, runtime.getTools());
       } catch (error) {
-        sendJson(res, 500, { error: error.message });
+        sendJson(res, 500, { error: (error as Error).message });
       }
       return;
     }
@@ -88,7 +91,7 @@ async function main() {
       try {
         sendJson(res, 200, await runtime.describeBundle());
       } catch (error) {
-        sendJson(res, 500, { error: error.message });
+        sendJson(res, 500, { error: (error as Error).message });
       }
       return;
     }
@@ -103,7 +106,7 @@ async function main() {
           }),
         );
       } catch (error) {
-        sendJson(res, 500, { error: error.message });
+        sendJson(res, 500, { error: (error as Error).message });
       }
       return;
     }
@@ -173,12 +176,14 @@ async function main() {
 
       try {
         const body = await readBody(req);
-        const input = body.trim() ? parseJsonText(body, "request body") : {};
-        const emit = (event) =>
+        const input = body.trim()
+          ? (parseJsonText(body, "request body") as Record<string, unknown>)
+          : {};
+        const emit: EventListener = (event) =>
           eventBus.emit({
             jobId,
             ...event,
-            type: event.phase ?? "info",
+            type: (event as Record<string, unknown>).phase as string ?? "info",
             at: new Date().toISOString(),
           });
 
@@ -187,7 +192,7 @@ async function main() {
           message: `${req.method} ${url.pathname}`,
         });
 
-        let result;
+        let result: unknown;
         if (url.pathname === "/v1/setup") {
           result = await runtime.setupVersion(input, { onEvent: emit });
         } else if (url.pathname === "/v1/use-version") {
@@ -201,9 +206,11 @@ async function main() {
             onEvent: emit,
           });
         } else if (url.pathname === "/v1/call") {
-          result = await runtime.callTool(input.name, input.arguments ?? {}, {
-            onEvent: emit,
-          });
+          result = await runtime.callTool(
+            input.name as string,
+            (input.arguments as Record<string, unknown>) ?? {},
+            { onEvent: emit },
+          );
         } else {
           result = await runtime.callMetaTool("xco_raw_request", input, {
             onEvent: emit,
@@ -221,9 +228,9 @@ async function main() {
           type: "request-error",
           phase: "request-error",
           at: new Date().toISOString(),
-          message: error.message,
+          message: (error as Error).message,
         });
-        sendJson(res, 500, { jobId, error: error.message });
+        sendJson(res, 500, { jobId, error: (error as Error).message });
       }
       return;
     }
@@ -233,7 +240,7 @@ async function main() {
     });
   });
 
-  server.on("error", (error) => {
+  server.on("error", (error: Error) => {
     process.stderr.write(`HTTP server error: ${error.message}\n`);
     process.exit(1);
   });
@@ -244,7 +251,7 @@ async function main() {
     );
   });
 
-  function shutdown() {
+  function shutdown(): void {
     runtime.closeTunnels();
     server.close();
   }
@@ -259,7 +266,8 @@ async function main() {
   });
 }
 
-main().catch((error) => {
-  process.stderr.write(`${error.stack ?? error.message}\n`);
+main().catch((error: unknown) => {
+  const err = error as Error;
+  process.stderr.write(`${err.stack ?? err.message}\n`);
   process.exitCode = 1;
 });

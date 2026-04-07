@@ -1,6 +1,23 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import type {
+  ActiveTunnel,
+  AuthHeaderToken,
+  AuthSession,
+  ConfigOverrides,
+  EventListener,
+  InstalledVersion,
+  LoadConfigOptions,
+  OperationInfo,
+  RuntimeCallOptions,
+  SpecEntry,
+  ToolDefinition,
+  ToolEntry,
+  ToolResult,
+  XcoConfig,
+  XcoResponse,
+} from "../types.js";
 import {
   loadConfig,
   resolveCredentials,
@@ -436,7 +453,9 @@ const META_TOOL_NAMES = new Set(META_TOOLS.map((tool) => tool.name));
 
 const READONLY_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
-function asToolResult(result, options = {}) {
+type ToolInput = Record<string, unknown>;
+
+function asToolResult(result: unknown, options: { isError?: boolean } = {}): ToolResult {
   return {
     isError: Boolean(options.isError),
     structuredContent: result,
@@ -449,7 +468,7 @@ function asToolResult(result, options = {}) {
   };
 }
 
-function extractErrorMessage(body, fallback = "Request failed.") {
+function extractErrorMessage(body: unknown, fallback = "Request failed."): string {
   if (!body) {
     return fallback;
   }
@@ -458,72 +477,77 @@ function extractErrorMessage(body, fallback = "Request failed.") {
     return body;
   }
 
-  if (typeof body.message === "string") {
-    return body.message;
+  const record = body as Record<string, unknown>;
+
+  if (typeof record.message === "string") {
+    return record.message;
   }
 
-  if (typeof body.error === "string") {
-    return body.error;
+  if (typeof record.error === "string") {
+    return record.error;
   }
 
-  if (Array.isArray(body.errors) && body.errors.length > 0) {
-    return body.errors
-      .map((item) => item?.message ?? JSON.stringify(item))
+  if (Array.isArray(record.errors) && record.errors.length > 0) {
+    return (record.errors as Array<Record<string, unknown>>)
+      .map((item) => (item?.message as string) ?? JSON.stringify(item))
       .join("; ");
   }
 
-  if (typeof body.code !== "undefined" || typeof body.message !== "undefined") {
+  if (typeof record.code !== "undefined" || typeof record.message !== "undefined") {
     return JSON.stringify(body);
   }
 
   return fallback;
 }
 
-function buildAuthConfigPatch(input = {}, config = {}) {
+function buildAuthConfigPatch(
+  input: ToolInput = {},
+  config: Partial<XcoConfig> = {},
+): ConfigOverrides {
   return {
-    specSource: input.specSource ?? config.specSource,
-    docsUrl: input.docsUrl ?? config.docsUrl,
-    baseUrl: input.baseUrl ?? config.baseUrl,
-    username: input.username ?? config.username,
-    usernameEnv: input.usernameEnv ?? config.usernameEnv,
-    passwordEnv: input.passwordEnv ?? config.passwordEnv,
-    tokenEnv: input.tokenEnv ?? config.tokenEnv,
-    readonly: input.readonly ?? config.readonly,
-    bastionJumps: input.bastionJumps ?? config.bastionJumps,
+    specSource: (input.specSource ?? config.specSource) as string | undefined,
+    docsUrl: (input.docsUrl ?? config.docsUrl) as string | undefined,
+    baseUrl: (input.baseUrl ?? config.baseUrl) as string | undefined,
+    username: (input.username ?? config.username) as string | undefined,
+    usernameEnv: (input.usernameEnv ?? config.usernameEnv) as string | undefined,
+    passwordEnv: (input.passwordEnv ?? config.passwordEnv) as string | undefined,
+    tokenEnv: (input.tokenEnv ?? config.tokenEnv) as string | undefined,
+    readonly: (input.readonly ?? config.readonly) as boolean | undefined,
+    bastionJumps: (input.bastionJumps ?? config.bastionJumps) as string | undefined,
     bastionIdentityFile:
-      input.bastionIdentityFile ?? config.bastionIdentityFile,
+      (input.bastionIdentityFile ?? config.bastionIdentityFile) as string | undefined,
     bastionPasswordAuth:
-      input.bastionPasswordAuth ?? config.bastionPasswordAuth,
-    bastionPasswordEnv: input.bastionPasswordEnv ?? config.bastionPasswordEnv,
-    bastionPasswordsEnv: input.bastionPasswordsEnv ?? config.bastionPasswordsEnv,
-    bastionTargetHost: input.bastionTargetHost ?? config.bastionTargetHost,
-    bastionTargetPort: input.bastionTargetPort ?? config.bastionTargetPort,
-    bastionLocalPort: input.bastionLocalPort ?? config.bastionLocalPort,
-    bastionBindHost: input.bastionBindHost ?? config.bastionBindHost,
+      (input.bastionPasswordAuth ?? config.bastionPasswordAuth) as boolean | undefined,
+    bastionPasswordEnv: (input.bastionPasswordEnv ?? config.bastionPasswordEnv) as string | undefined,
+    bastionPasswordsEnv: (input.bastionPasswordsEnv ?? config.bastionPasswordsEnv) as string | undefined,
+    bastionTargetHost: (input.bastionTargetHost ?? config.bastionTargetHost) as string | undefined,
+    bastionTargetPort: (input.bastionTargetPort ?? config.bastionTargetPort) as number | string | undefined,
+    bastionLocalPort: (input.bastionLocalPort ?? config.bastionLocalPort) as number | undefined,
+    bastionBindHost: (input.bastionBindHost ?? config.bastionBindHost) as string | undefined,
     bastionStrictHostKeyChecking:
-      input.bastionStrictHostKeyChecking ?? config.bastionStrictHostKeyChecking,
+      (input.bastionStrictHostKeyChecking ?? config.bastionStrictHostKeyChecking) as boolean | undefined,
     tlsRejectUnauthorized:
-      input.tlsRejectUnauthorized ?? config.tlsRejectUnauthorized,
+      (input.tlsRejectUnauthorized ?? config.tlsRejectUnauthorized) as string | undefined,
   };
 }
 
-function isImplicitAuthEndpoint(servicePrefix = "", routePath = "") {
+function isImplicitAuthEndpoint(servicePrefix = "", routePath = ""): boolean {
   const fullPath = `${servicePrefix ?? ""}${routePath ?? ""}`;
   return /\/auth\/token\/(access-token|refresh|client-access-token|system-access-token|extended-system-access-token)$/.test(
     fullPath,
   );
 }
 
-async function readInstalledVersions(xcoHome) {
+async function readInstalledVersions(xcoHome: string): Promise<InstalledVersion[]> {
   const versionsDir = path.join(xcoHome, "versions");
-  let entries = [];
+  let entries: import("node:fs").Dirent[] = [];
   try {
     entries = await fs.readdir(versionsDir, { withFileTypes: true });
   } catch {
     return [];
   }
 
-  const versions = [];
+  const versions: InstalledVersion[] = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) {
       continue;
@@ -535,12 +559,12 @@ async function readInstalledVersions(xcoHome) {
     }
 
     try {
-      const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
+      const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8")) as Record<string, unknown>;
       versions.push({
-        version: manifest.version ?? entry.name,
+        version: (manifest.version as string) ?? entry.name,
         manifestPath,
-        serviceCount: manifest.services?.length ?? 0,
-        downloadedAt: manifest.downloadedAt ?? null,
+        serviceCount: (manifest.services as unknown[] | undefined)?.length ?? 0,
+        downloadedAt: (manifest.downloadedAt as string) ?? null,
       });
     } catch {
       // Ignore malformed cache entries.
@@ -552,7 +576,20 @@ async function readInstalledVersions(xcoHome) {
 }
 
 export class XcoRuntime {
-  constructor(config, loadOptions = {}) {
+  config: XcoConfig;
+  loadOptions: LoadConfigOptions;
+  specEntries: SpecEntry[];
+  operations: ToolEntry[];
+  operationMap: Map<string, ToolEntry>;
+  operationIdMap: Map<string, ToolEntry>;
+  sessionCache: Map<string, AuthSession | null>;
+  tunnels: Map<string, ActiveTunnel>;
+  pendingTunnels: Map<string, Promise<ActiveTunnel>>;
+
+  static cleanupInstalled: boolean;
+  static instances: Set<XcoRuntime>;
+
+  constructor(config: XcoConfig, loadOptions: LoadConfigOptions = {}) {
     this.config = config;
     this.loadOptions = loadOptions;
     this.specEntries = [];
@@ -565,7 +602,7 @@ export class XcoRuntime {
     this.installCleanupHandlers();
   }
 
-  installCleanupHandlers() {
+  installCleanupHandlers(): void {
     if (XcoRuntime.cleanupInstalled) {
       XcoRuntime.instances.add(this);
       return;
@@ -590,7 +627,7 @@ export class XcoRuntime {
     XcoRuntime.cleanupInstalled = true;
   }
 
-  closeTunnels() {
+  closeTunnels(): void {
     for (const tunnel of this.tunnels.values()) {
       stopSshTunnel(tunnel, "SIGTERM");
       tunnel.child.stderr?.destroy();
@@ -602,7 +639,7 @@ export class XcoRuntime {
     XcoRuntime.instances.delete(this);
   }
 
-  async reload() {
+  async reload(): Promise<this> {
     this.config = await loadConfig(this.loadOptions);
     const loaded = await loadOperations(this.config);
     this.specEntries = loaded.specEntries;
@@ -621,7 +658,7 @@ export class XcoRuntime {
     return this;
   }
 
-  getTools() {
+  getTools(): ToolDefinition[] {
     const generatedTools = this.operations
       .filter(
         (operation) =>
@@ -635,10 +672,10 @@ export class XcoRuntime {
         inputSchema: operation.inputSchema,
       }));
 
-    return [...META_TOOLS, ...generatedTools];
+    return [...META_TOOLS as ToolDefinition[], ...generatedTools];
   }
 
-  async describeBundle() {
+  async describeBundle(): Promise<Record<string, unknown>> {
     const installedVersions = await readInstalledVersions(this.config.xcoHome);
     const authStatus = await this.getAuthStatus();
     return {
@@ -675,25 +712,25 @@ export class XcoRuntime {
     };
   }
 
-  async discoverRemoteVersions() {
+  async discoverRemoteVersions(): Promise<string[]> {
     const html = await fetchText(buildSupportDocsUrl("4.0.0"));
     return extractAvailableVersions(html);
   }
 
-  async setupVersion(input, options = {}) {
-    const version = input.version;
+  async setupVersion(input: ToolInput, options: RuntimeCallOptions = {}): Promise<Record<string, unknown>> {
+    const version = input.version as string;
     if (!version) {
       throw new Error("setupVersion requires a version.");
     }
 
-    const specSource = input.specSource ?? this.config.specSource ?? "official";
+    const specSource = (input.specSource ?? this.config.specSource ?? "official") as string;
     const docsUrl =
       specSource === "instance" || specSource === "auto"
-        ? this.resolveDocsUrl(input)
-        : (input.docsUrl ?? this.config.docsUrl ?? null);
+        ? this.resolveDocsUrl(input as Record<string, string>)
+        : ((input.docsUrl ?? this.config.docsUrl ?? null) as string | null);
     const requestDocsUrl =
       specSource === "instance" || specSource === "auto"
-        ? await this.resolveRequestDocsUrl(input, options)
+        ? await this.resolveRequestDocsUrl(input as Record<string, string>, options)
         : null;
 
     const manifest = await downloadVersionBundle(version, {
@@ -720,25 +757,27 @@ export class XcoRuntime {
     };
   }
 
-  async useVersion(input) {
+  async useVersion(input: ToolInput): Promise<Record<string, unknown>> {
     if (!input.version) {
       throw new Error("useVersion requires a version.");
     }
 
+    const version = input.version as string;
+
     const manifestPath = path.join(
       this.config.xcoHome,
       "versions",
-      input.version,
+      version,
       "manifest.json",
     );
     if (!(await fileExists(manifestPath))) {
       throw new Error(
-        `XCO version ${input.version} is not installed. Run setup first.`,
+        `XCO version ${version} is not installed. Run setup first.`,
       );
     }
 
     this.config = await saveConfig(this.config, {
-      activeVersion: input.version,
+      activeVersion: version,
       ...buildAuthConfigPatch(input, this.config),
     });
 
@@ -749,14 +788,14 @@ export class XcoRuntime {
     };
   }
 
-  getOperationById(serviceSlug, operationId) {
+  getOperationById(serviceSlug: string, operationId: string): OperationInfo | null {
     return (
       this.operationIdMap.get(`${serviceSlug}:${operationId}`)?.operation ??
       null
     );
   }
 
-  getAuthOperation(operationId) {
+  getAuthOperation(operationId: string): OperationInfo {
     const operation = this.getOperationById("auth", operationId);
     if (!operation) {
       throw new Error(
@@ -767,14 +806,14 @@ export class XcoRuntime {
     return operation;
   }
 
-  resolveBaseUrl(overrides = {}) {
+  resolveBaseUrl(overrides: ToolInput = {}): string | null {
     return (
-      overrides.baseUrl ?? overrides._baseUrl ?? this.config.baseUrl ?? null
+      (overrides.baseUrl ?? overrides._baseUrl ?? this.config.baseUrl ?? null) as string | null
     );
   }
 
-  resolveDocsUrl(overrides = {}) {
-    const configuredDocsUrl = overrides.docsUrl ?? this.config.docsUrl ?? null;
+  resolveDocsUrl(overrides: ToolInput = {}): string | null {
+    const configuredDocsUrl = (overrides.docsUrl ?? this.config.docsUrl ?? null) as string | null;
     if (configuredDocsUrl) {
       try {
         return new URL(configuredDocsUrl).toString();
@@ -798,7 +837,7 @@ export class XcoRuntime {
     return new URL("/docs/", baseUrl).toString();
   }
 
-  async resolveRequestBaseUrl(overrides = {}, options = {}) {
+  async resolveRequestBaseUrl(overrides: ToolInput = {}, options: RuntimeCallOptions = {}): Promise<string | null> {
     const baseUrl = this.resolveBaseUrl(overrides);
     if (!baseUrl) {
       return baseUrl;
@@ -824,14 +863,14 @@ export class XcoRuntime {
 
     // Serialize concurrent tunnel startups for the same key
     if (this.pendingTunnels.has(tunnelKey)) {
-      const tunnel = await this.pendingTunnels.get(tunnelKey);
+      const tunnel = await this.pendingTunnels.get(tunnelKey)!;
       const url = new URL(baseUrl);
-      url.hostname = tunnel.bindHost;
-      url.port = String(tunnel.localPort);
+      url.hostname = tunnel!.bindHost;
+      url.port = String(tunnel!.localPort);
       return url.toString();
     }
 
-    const onEvent = options.onEvent ?? (() => {});
+    const onEvent: EventListener = options.onEvent ?? (() => {});
     onEvent({
       level: "info",
       phase: "ssh-tunnel",
@@ -854,7 +893,7 @@ export class XcoRuntime {
     }
   }
 
-  async resolveRequestDocsUrl(overrides = {}, options = {}) {
+  async resolveRequestDocsUrl(overrides: ToolInput = {}, options: RuntimeCallOptions = {}): Promise<string | null> {
     const docsUrl = this.resolveDocsUrl(overrides);
     if (!docsUrl) {
       return null;
@@ -886,7 +925,7 @@ export class XcoRuntime {
     return logicalDocs.toString();
   }
 
-  enforceReadonly(operationOrMethod, routePath = "") {
+  enforceReadonly(operationOrMethod: string | OperationInfo, routePath = ""): void {
     if (!this.config.readonly) {
       return;
     }
@@ -908,7 +947,7 @@ export class XcoRuntime {
     );
   }
 
-  async getSessionFor(baseUrl, username) {
+  async getSessionFor(baseUrl: string | null, username: string | null): Promise<AuthSession | null> {
     if (!baseUrl || !username) {
       return null;
     }
@@ -920,7 +959,7 @@ export class XcoRuntime {
     });
 
     if (this.sessionCache.has(key)) {
-      return this.sessionCache.get(key);
+      return this.sessionCache.get(key) ?? null;
     }
 
     const session = await readSession(this.config.sessionPath, key);
@@ -928,7 +967,7 @@ export class XcoRuntime {
     return session;
   }
 
-  async saveSession(session) {
+  async saveSession(session: AuthSession): Promise<AuthSession> {
     const key = buildSessionKey({
       version: session.version,
       baseUrl: session.baseUrl,
@@ -940,7 +979,7 @@ export class XcoRuntime {
     return session;
   }
 
-  async clearSession(input = {}) {
+  async clearSession(input: ToolInput = {}): Promise<Record<string, unknown>> {
     const baseUrl = this.resolveBaseUrl(input);
     const username = resolveUsername(this.config, input);
     if (!baseUrl || !username) {
@@ -968,7 +1007,7 @@ export class XcoRuntime {
     };
   }
 
-  async getAuthStatus(input = {}) {
+  async getAuthStatus(input: ToolInput = {}): Promise<Record<string, unknown>> {
     const baseUrl = this.resolveBaseUrl(input);
     const token = resolveToken(this.config, input);
     const credentials = resolveCredentials(this.config, input);
@@ -984,7 +1023,7 @@ export class XcoRuntime {
     };
   }
 
-  async loginWithPassword(input = {}, options = {}) {
+  async loginWithPassword(input: ToolInput = {}, options: RuntimeCallOptions = {}): Promise<AuthSession> {
     const logicalBaseUrl = this.resolveBaseUrl(input);
     if (!logicalBaseUrl) {
       throw new Error(
@@ -1000,7 +1039,7 @@ export class XcoRuntime {
       );
     }
 
-    const onEvent = options.onEvent ?? (() => {});
+    const onEvent: EventListener = options.onEvent ?? (() => {});
     onEvent({
       level: "info",
       phase: "auth-login",
@@ -1028,25 +1067,26 @@ export class XcoRuntime {
       );
     }
 
-    const accessToken = response.body?.["access-token"];
+    const accessToken = (response.body as Record<string, unknown>)?.["access-token"] as string | undefined;
     if (!accessToken) {
       throw new Error("XCO login succeeded but no access-token was returned.");
     }
 
+    const body = response.body as Record<string, unknown>;
     return await this.saveSession({
       version: this.config.activeVersion,
       baseUrl: logicalBaseUrl,
       username: credentials.username,
-      tokenType: response.body?.["token-type"] ?? "Bearer",
+      tokenType: (body?.["token-type"] as string) ?? "Bearer",
       accessToken,
-      refreshToken: response.body?.["refresh-token"] ?? null,
+      refreshToken: (body?.["refresh-token"] as string) ?? null,
       accessTokenExpiresAt: getTokenExpiresAt(accessToken),
-      message: response.body?.message ?? null,
+      message: (body?.message as string) ?? null,
       updatedAt: new Date().toISOString(),
     });
   }
 
-  async refreshSession(input = {}, existingSession = null, options = {}) {
+  async refreshSession(input: ToolInput = {}, existingSession: AuthSession | null = null, options: RuntimeCallOptions = {}): Promise<AuthSession> {
     const logicalBaseUrl = this.resolveBaseUrl(input);
     const baseUrl = await this.resolveRequestBaseUrl(input, options);
     const credentials = resolveCredentials(this.config, input);
@@ -1058,7 +1098,7 @@ export class XcoRuntime {
       throw new Error("No cached refresh token is available.");
     }
 
-    const onEvent = options.onEvent ?? (() => {});
+    const onEvent: EventListener = options.onEvent ?? (() => {});
     onEvent({
       level: "info",
       phase: "auth-refresh",
@@ -1086,26 +1126,27 @@ export class XcoRuntime {
       );
     }
 
-    const accessToken = response.body?.["access-token"];
+    const accessToken = (response.body as Record<string, unknown>)?.["access-token"] as string | undefined;
     if (!accessToken) {
       throw new Error(
         "XCO refresh succeeded but no access-token was returned.",
       );
     }
 
+    const body = response.body as Record<string, unknown>;
     return await this.saveSession({
       ...session,
-      tokenType: response.body?.["token-type"] ?? session.tokenType ?? "Bearer",
+      tokenType: (body?.["token-type"] as string) ?? session.tokenType ?? "Bearer",
       accessToken,
       refreshToken:
-        response.body?.["refresh-token"] ?? session.refreshToken ?? null,
+        (body?.["refresh-token"] as string) ?? session.refreshToken ?? null,
       accessTokenExpiresAt: getTokenExpiresAt(accessToken),
-      message: response.body?.message ?? session.message ?? null,
+      message: (body?.message as string) ?? session.message ?? null,
       updatedAt: new Date().toISOString(),
     });
   }
 
-  async ensureAuthSession(input = {}, options = {}) {
+  async ensureAuthSession(input: ToolInput = {}, options: RuntimeCallOptions & { forceRenew?: boolean } = {}): Promise<AuthSession> {
     const baseUrl = this.resolveBaseUrl(input);
     if (!baseUrl) {
       throw new Error(
@@ -1137,7 +1178,7 @@ export class XcoRuntime {
     return await this.loginWithPassword(input, options);
   }
 
-  async getAuthHeaderToken(input = {}, options = {}) {
+  async getAuthHeaderToken(input: ToolInput = {}, options: RuntimeCallOptions = {}): Promise<AuthHeaderToken> {
     const explicitToken = resolveToken(this.config, input);
     if (explicitToken) {
       return {
@@ -1155,7 +1196,7 @@ export class XcoRuntime {
     };
   }
 
-  async callGeneratedTool(name, input, options = {}) {
+  async callGeneratedTool(name: string, input: ToolInput, options: RuntimeCallOptions = {}): Promise<XcoResponse> {
     const entry = this.operationMap.get(name);
     if (!entry) {
       throw new Error(`Unknown tool "${name}".`);
@@ -1163,7 +1204,7 @@ export class XcoRuntime {
 
     this.enforceReadonly(entry.operation);
 
-    let token = null;
+    let token: string | null = null;
     let retryable = false;
     if (entry.operation.requiresAuth) {
       const authState = await this.getAuthHeaderToken(input ?? {}, options);
@@ -1209,7 +1250,7 @@ export class XcoRuntime {
     return response;
   }
 
-  async callMetaTool(name, input, options = {}) {
+  async callMetaTool(name: string, input: ToolInput, options: RuntimeCallOptions = {}): Promise<unknown> {
     if (name === "xco_setup_version") {
       return await this.setupVersion(input ?? {}, options);
     }
@@ -1221,11 +1262,11 @@ export class XcoRuntime {
     if (name === "xco_auth_login") {
       this.config = {
         ...this.config,
-        baseUrl: input?.baseUrl ?? this.config.baseUrl,
-        username: input?.username ?? this.config.username,
-        usernameEnv: input?.usernameEnv ?? this.config.usernameEnv,
-        password: input?.password ?? this.config.password,
-        passwordEnv: input?.passwordEnv ?? this.config.passwordEnv,
+        baseUrl: (input?.baseUrl as string) ?? this.config.baseUrl,
+        username: (input?.username as string) ?? this.config.username,
+        usernameEnv: (input?.usernameEnv as string) ?? this.config.usernameEnv,
+        password: (input?.password as string) ?? this.config.password,
+        passwordEnv: (input?.passwordEnv as string) ?? this.config.passwordEnv,
       };
 
       const session = await this.loginWithPassword(input ?? {}, options);
@@ -1264,11 +1305,11 @@ export class XcoRuntime {
     }
 
     if (name === "xco_raw_request") {
-      const fullPath = `${input?.servicePrefix ?? ""}${input?.path ?? ""}`;
+      const fullPath = `${(input?.servicePrefix as string) ?? ""}${(input?.path as string) ?? ""}`;
       const authenticate =
         input?.authenticate ?? !isImplicitAuthEndpoint("", fullPath);
-      this.enforceReadonly(input?.method ?? "GET", fullPath);
-      let token = resolveToken(this.config, input ?? {});
+      this.enforceReadonly((input?.method as string) ?? "GET", fullPath);
+      let token: string | null = resolveToken(this.config, input ?? {});
       let retryable = false;
 
       if (!token && authenticate) {
@@ -1302,8 +1343,8 @@ export class XcoRuntime {
     throw new Error(`Unknown meta tool "${name}".`);
   }
 
-  async callTool(name, input = {}, options = {}) {
-    const onEvent = options.onEvent ?? (() => {});
+  async callTool(name: string, input: ToolInput = {}, options: RuntimeCallOptions = {}): Promise<unknown> {
+    const onEvent: EventListener = options.onEvent ?? (() => {});
     onEvent({
       level: "info",
       phase: "call-start",
@@ -1329,20 +1370,20 @@ export class XcoRuntime {
         level: "error",
         phase: "call-error",
         tool: name,
-        message: error.message,
+        message: (error as Error).message,
       });
       throw error;
     }
   }
 
-  async callToolForMcp(name, input = {}, options = {}) {
+  async callToolForMcp(name: string, input: ToolInput = {}, options: RuntimeCallOptions = {}): Promise<ToolResult> {
     try {
       const result = await this.callTool(name, input, options);
       return asToolResult(result);
     } catch (error) {
       return asToolResult(
         {
-          error: error.message,
+          error: (error as Error).message,
         },
         { isError: true },
       );
@@ -1351,9 +1392,9 @@ export class XcoRuntime {
 }
 
 XcoRuntime.cleanupInstalled = false;
-XcoRuntime.instances = new Set();
+XcoRuntime.instances = new Set<XcoRuntime>();
 
-export async function createRuntime(options = {}) {
+export async function createRuntime(options: LoadConfigOptions = {}): Promise<XcoRuntime> {
   const config = await loadConfig(options);
 
   // Apply TLS certificate validation setting

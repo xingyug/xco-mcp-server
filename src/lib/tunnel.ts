@@ -4,9 +4,19 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 
+import type {
+  ActiveTunnel,
+  AskpassHelper,
+  ConfigOverrides,
+  ResolvedPasswords,
+  TunnelCommand,
+  TunnelSettings,
+  TunnelSpec,
+  XcoConfig,
+} from "../types.js";
 import { toAbsolutePath } from "./utils.js";
 
-function parseBoolean(value) {
+function parseBoolean(value: unknown): boolean | null {
   if (value === undefined || value === null || value === "") {
     return null;
   }
@@ -27,9 +37,9 @@ function parseBoolean(value) {
   return null;
 }
 
-function resolveBastionPassword(config, overrides = {}) {
+function resolveBastionPassword(config: XcoConfig, overrides: ConfigOverrides = {}): string | null {
   if (overrides.bastionPassword) {
-    return overrides.bastionPassword;
+    return overrides.bastionPassword as string;
   }
 
   if (config.bastionPassword) {
@@ -38,28 +48,28 @@ function resolveBastionPassword(config, overrides = {}) {
 
   if (
     overrides.bastionPasswordEnv &&
-    process.env[overrides.bastionPasswordEnv]
+    process.env[overrides.bastionPasswordEnv as string]
   ) {
-    return process.env[overrides.bastionPasswordEnv];
+    return process.env[overrides.bastionPasswordEnv as string]!;
   }
 
   if (config.bastionPasswordEnv && process.env[config.bastionPasswordEnv]) {
-    return process.env[config.bastionPasswordEnv];
+    return process.env[config.bastionPasswordEnv]!;
   }
 
   return null;
 }
 
-function resolveBastionPasswords(config, overrides = {}) {
+function resolveBastionPasswords(config: XcoConfig, overrides: ConfigOverrides = {}): ResolvedPasswords {
   // Per-hop passwords from explicit values (comma-separated)
   const rawPasswords =
-    overrides.bastionPasswords ?? config.bastionPasswords ?? null;
+    (overrides.bastionPasswords as string) ?? config.bastionPasswords ?? null;
   if (rawPasswords) {
     const list = (
       Array.isArray(rawPasswords)
         ? rawPasswords
         : String(rawPasswords).split(",")
-    ).map((p) => String(p).trim());
+    ).map((p: string) => String(p).trim());
     if (list.length > 0 && list.some(Boolean)) {
       return { passwords: list, explicit: true };
     }
@@ -67,18 +77,18 @@ function resolveBastionPasswords(config, overrides = {}) {
 
   // Per-hop passwords from env var names (comma-separated names)
   const rawEnvNames =
-    overrides.bastionPasswordsEnv ?? config.bastionPasswordsEnv ?? null;
+    (overrides.bastionPasswordsEnv as string) ?? config.bastionPasswordsEnv ?? null;
   if (rawEnvNames) {
     const names = (
       Array.isArray(rawEnvNames)
         ? rawEnvNames
         : String(rawEnvNames).split(",")
     )
-      .map((n) => String(n).trim())
+      .map((n: string) => String(n).trim())
       .filter(Boolean);
     if (names.length > 0) {
-      const resolved = names.map((name) => process.env[name] ?? "");
-      const missing = names.filter((name) => !process.env[name]);
+      const resolved = names.map((name: string) => process.env[name] ?? "");
+      const missing = names.filter((name: string) => !process.env[name]);
       if (missing.length > 0) {
         throw new Error(
           `Bastion password env var(s) not set: ${missing.join(", ")}`,
@@ -97,7 +107,7 @@ function resolveBastionPasswords(config, overrides = {}) {
   return { passwords: [], explicit: false };
 }
 
-export function parseBastionJumps(value) {
+export function parseBastionJumps(value: unknown): string[] {
   if (!value) {
     return [];
   }
@@ -112,7 +122,7 @@ export function parseBastionJumps(value) {
     .filter(Boolean);
 }
 
-export function getTunnelSettings(config, overrides = {}) {
+export function getTunnelSettings(config: XcoConfig, overrides: ConfigOverrides = {}): TunnelSettings {
   const jumps = parseBastionJumps(overrides.bastionJumps ?? config.bastionJumps);
   const resolved = resolveBastionPasswords(config, overrides);
 
@@ -142,7 +152,7 @@ export function getTunnelSettings(config, overrides = {}) {
     jumps,
     identityFile: toAbsolutePath(
       config.cwd ?? process.cwd(),
-      overrides.bastionIdentityFile ?? config.bastionIdentityFile ?? null,
+      (overrides.bastionIdentityFile as string) ?? config.bastionIdentityFile ?? null,
     ),
     passwordAuth:
       parseBoolean(overrides.bastionPasswordAuth) ??
@@ -152,12 +162,12 @@ export function getTunnelSettings(config, overrides = {}) {
     passwords: resolved.passwords,
     explicitMultiPassword: resolved.explicit && resolved.passwords.length > 1,
     passwordEnv:
-      overrides.bastionPasswordEnv ?? config.bastionPasswordEnv ?? null,
-    targetHost: overrides.bastionTargetHost ?? config.bastionTargetHost ?? null,
-    targetPort: overrides.bastionTargetPort ?? config.bastionTargetPort ?? null,
-    localPort: overrides.bastionLocalPort ?? config.bastionLocalPort ?? null,
+      (overrides.bastionPasswordEnv as string) ?? config.bastionPasswordEnv ?? null,
+    targetHost: (overrides.bastionTargetHost as string) ?? config.bastionTargetHost ?? null,
+    targetPort: (overrides.bastionTargetPort as number | string) ?? config.bastionTargetPort ?? null,
+    localPort: (overrides.bastionLocalPort as number) ?? config.bastionLocalPort ?? null,
     bindHost:
-      overrides.bastionBindHost ?? config.bastionBindHost ?? "127.0.0.1",
+      (overrides.bastionBindHost as string) ?? config.bastionBindHost ?? "127.0.0.1",
     strictHostKeyChecking:
       parseBoolean(overrides.bastionStrictHostKeyChecking) ??
       parseBoolean(config.bastionStrictHostKeyChecking) ??
@@ -165,11 +175,11 @@ export function getTunnelSettings(config, overrides = {}) {
   };
 }
 
-export function hasTunnelConfigured(config, overrides = {}) {
+export function hasTunnelConfigured(config: XcoConfig, overrides: ConfigOverrides = {}): boolean {
   return getTunnelSettings(config, overrides).jumps.length > 0;
 }
 
-export function deriveTunnelTarget(logicalBaseUrl, settings) {
+export function deriveTunnelTarget(logicalBaseUrl: string, settings: TunnelSettings): { targetHost: string; targetPort: number } {
   const url = new URL(logicalBaseUrl);
   const parsedPort = url.port ? Number(url.port) : null;
   return {
@@ -182,7 +192,7 @@ export function deriveTunnelTarget(logicalBaseUrl, settings) {
   };
 }
 
-export function buildTunnelKey(logicalBaseUrl, settings) {
+export function buildTunnelKey(logicalBaseUrl: string, settings: TunnelSettings): string {
   return JSON.stringify({
     logicalBaseUrl,
     jumps: settings.jumps,
@@ -196,7 +206,7 @@ export function buildTunnelKey(logicalBaseUrl, settings) {
   });
 }
 
-export function buildSshTunnelSpec(logicalBaseUrl, settings) {
+export function buildSshTunnelSpec(logicalBaseUrl: string, settings: TunnelSettings): TunnelSpec {
   if (settings.jumps.length === 0) {
     throw new Error("No bastion jumps are configured.");
   }
@@ -232,13 +242,13 @@ export function buildSshTunnelSpec(logicalBaseUrl, settings) {
   };
 }
 
-export function buildSshTunnelCommand(logicalBaseUrl, settings) {
+export function buildSshTunnelCommand(logicalBaseUrl: string, settings: TunnelSettings): TunnelCommand {
   const spec = buildSshTunnelSpec(logicalBaseUrl, settings);
   if (!spec.localPort) {
     throw new Error("buildSshTunnelCommand requires a concrete localPort.");
   }
 
-  const args = [
+  const args: string[] = [
     "-N",
     "-T",
     "-o",
@@ -271,7 +281,7 @@ export function buildSshTunnelCommand(logicalBaseUrl, settings) {
   args.push(
     "-L",
     `${spec.bindHost}:${spec.localPort}:${spec.targetHost}:${spec.targetPort}`,
-    spec.finalHop,
+    spec.finalHop!,
   );
 
   return {
@@ -282,7 +292,7 @@ export function buildSshTunnelCommand(logicalBaseUrl, settings) {
   };
 }
 
-function createAskpassHelper(passwords, jumps) {
+function createAskpassHelper(passwords: string[] | null, jumps: string[] | null): AskpassHelper {
   const helperDir = fs.mkdtempSync(path.join(os.tmpdir(), "xco-askpass-"));
 
   if (Array.isArray(passwords) && passwords.length > 1 && Array.isArray(jumps)) {
@@ -324,7 +334,7 @@ function createAskpassHelper(passwords, jumps) {
     fs.chmodSync(helperPath, 0o700);
 
     // Build env vars: keys mapping + per-hop passwords
-    const env = {
+    const env: Record<string, string> = {
       DISPLAY: process.env.DISPLAY ?? "codex:0",
       SSH_ASKPASS: helperPath,
       SSH_ASKPASS_REQUIRE: "force",
@@ -369,18 +379,18 @@ function createAskpassHelper(passwords, jumps) {
   };
 }
 
-export function terminateTunnelProcess(child, signal = "SIGTERM") {
+export function terminateTunnelProcess(child: import("node:child_process").ChildProcess | null, signal: NodeJS.Signals = "SIGTERM"): boolean {
   if (!child) {
     return false;
   }
 
-  const pid = Number.isInteger(child.pid) ? child.pid : null;
+  const pid = Number.isInteger(child.pid) ? child.pid! : null;
   if (pid && process.platform !== "win32") {
     try {
       process.kill(-pid, signal);
       return true;
     } catch (error) {
-      if (error?.code !== "ESRCH") {
+      if ((error as NodeJS.ErrnoException)?.code !== "ESRCH") {
         throw error;
       }
     }
@@ -390,7 +400,7 @@ export function terminateTunnelProcess(child, signal = "SIGTERM") {
     child.kill(signal);
     return true;
   } catch (error) {
-    if (error?.code === "ESRCH") {
+    if ((error as NodeJS.ErrnoException)?.code === "ESRCH") {
       return false;
     }
 
@@ -398,21 +408,21 @@ export function terminateTunnelProcess(child, signal = "SIGTERM") {
   }
 }
 
-function escapeRegex(value) {
+function escapeRegex(value: string): string {
   return String(value).replace(/[|\\{}()[\]^$+*?.-]/g, "\\$&");
 }
 
-export function buildTunnelMatchPattern(tunnel) {
+export function buildTunnelMatchPattern(tunnel: ActiveTunnel): string {
   const localForward = `${tunnel.bindHost}:${tunnel.localPort}:${tunnel.targetHost}:${tunnel.targetPort}`;
   return `ssh .* -L ${escapeRegex(localForward)}( |$)`;
 }
 
-export function stopSshTunnel(tunnel, signal = "SIGTERM") {
-  return terminateTunnelProcess(tunnel?.child, signal);
+export function stopSshTunnel(tunnel: ActiveTunnel | null, signal: NodeJS.Signals = "SIGTERM"): boolean {
+  return terminateTunnelProcess(tunnel?.child ?? null, signal);
 }
 
-export async function allocateLocalPort(bindHost = "127.0.0.1") {
-  return await new Promise((resolve, reject) => {
+export async function allocateLocalPort(bindHost = "127.0.0.1"): Promise<number> {
+  return await new Promise<number>((resolve, reject) => {
     const server = net.createServer();
     server.on("error", reject);
     server.listen(0, bindHost, () => {
@@ -424,17 +434,17 @@ export async function allocateLocalPort(bindHost = "127.0.0.1") {
           return;
         }
 
-        resolve(port);
+        resolve(port!);
       });
     });
   });
 }
 
-async function waitForLocalPort(bindHost, localPort, timeoutMs = 5000) {
+async function waitForLocalPort(bindHost: string, localPort: number, timeoutMs = 5000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
-    const connected = await new Promise((resolve) => {
+    const connected = await new Promise<boolean>((resolve) => {
       const socket = net.connect({ host: bindHost, port: localPort });
       socket.on("connect", () => {
         socket.destroy();
@@ -450,7 +460,7 @@ async function waitForLocalPort(bindHost, localPort, timeoutMs = 5000) {
       return;
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    await new Promise<void>((resolve) => setTimeout(resolve, 150));
   }
 
   throw new Error(
@@ -458,7 +468,7 @@ async function waitForLocalPort(bindHost, localPort, timeoutMs = 5000) {
   );
 }
 
-export async function startSshTunnel(logicalBaseUrl, settings) {
+export async function startSshTunnel(logicalBaseUrl: string, settings: TunnelSettings): Promise<ActiveTunnel> {
   const localPort =
     settings.localPort ??
     (await allocateLocalPort(settings.bindHost ?? "127.0.0.1"));
@@ -487,7 +497,7 @@ export async function startSshTunnel(logicalBaseUrl, settings) {
       ...(askpassHelper?.env ?? {}),
       ...(tunnelCommand.spec.passwordAuth && !useMultiPassword
         ? {
-            XCO_BASTION_ASKPASS_PASSWORD: effectivePassword,
+            XCO_BASTION_ASKPASS_PASSWORD: effectivePassword ?? "",
           }
         : {}),
     },
@@ -496,15 +506,15 @@ export async function startSshTunnel(logicalBaseUrl, settings) {
   });
 
   let stderr = "";
-  child.stderr.setEncoding("utf8");
-  child.stderr.on("data", (chunk) => {
+  child.stderr!.setEncoding("utf8");
+  child.stderr!.on("data", (chunk: string) => {
     stderr += chunk;
   });
 
-  const cleanupHelper = () => {
+  const cleanupHelper = (): void => {
     try {
       askpassHelper?.cleanup();
-    } catch {}
+    } catch { /* ignore */ }
   };
   child.once("exit", cleanupHelper);
 
@@ -512,16 +522,16 @@ export async function startSshTunnel(logicalBaseUrl, settings) {
     await Promise.race([
       waitForLocalPort(
         tunnelCommand.spec.bindHost,
-        tunnelCommand.spec.localPort,
+        tunnelCommand.spec.localPort!,
         5000,
       ),
-      new Promise((_, reject) => {
-        child.once("error", (error) => {
+      new Promise<never>((_, reject) => {
+        child.once("error", (error: Error) => {
           reject(error);
         });
       }),
-      new Promise((_, reject) => {
-        child.once("exit", (code, signal) => {
+      new Promise<never>((_, reject) => {
+        child.once("exit", (code: number | null, signal: string | null) => {
           reject(
             new Error(
               `SSH tunnel exited before becoming ready (code=${code ?? "null"}, signal=${signal ?? "null"}): ${stderr.trim()}`,

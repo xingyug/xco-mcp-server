@@ -1,26 +1,30 @@
 import { createMcpDispatch } from "./lib/mcp-dispatch.js";
 import { createRuntime } from "./lib/runtime.js";
 
+import type { JsonRpcRequest, JsonRpcResponse } from "./types.js";
+
 const PROTOCOL_VERSION = "2024-11-05";
 
-function createJsonRpcError(code, message) {
+function createJsonRpcError(code: number, message: string): { code: number; message: string } {
   return {
     code,
     message,
   };
 }
 
-function encodeMessage(payload) {
+function encodeMessage(payload: JsonRpcResponse): string {
   const json = JSON.stringify(payload);
   return `Content-Length: ${Buffer.byteLength(json, "utf8")}\r\n\r\n${json}`;
 }
 
-function createMessageReader(onMessage) {
+function createMessageReader(
+  onMessage: (message: JsonRpcRequest) => Promise<void>,
+): (chunk: Buffer | Uint8Array) => Promise<void> {
   let buffer = Buffer.alloc(0);
   let processing = false;
-  const pending = [];
+  const pending: Buffer[] = [];
 
-  async function drain() {
+  async function drain(): Promise<void> {
     if (processing) {
       return;
     }
@@ -29,7 +33,7 @@ function createMessageReader(onMessage) {
     try {
       while (true) {
         while (pending.length > 0) {
-          buffer = Buffer.concat([buffer, pending.shift()]);
+          buffer = Buffer.concat([buffer, pending.shift()!]);
         }
 
         const separator = buffer.indexOf("\r\n\r\n");
@@ -52,9 +56,9 @@ function createMessageReader(onMessage) {
 
         const payload = buffer.subarray(start, end).toString("utf8");
         buffer = buffer.subarray(end);
-        let parsed;
+        let parsed: JsonRpcRequest;
         try {
-          parsed = JSON.parse(payload);
+          parsed = JSON.parse(payload) as JsonRpcRequest;
         } catch {
           throw Object.assign(new Error("Invalid JSON in message body."), {
             jsonRpcCode: -32700,
@@ -71,13 +75,13 @@ function createMessageReader(onMessage) {
     }
   }
 
-  return function handleChunk(chunk) {
+  return function handleChunk(chunk: Buffer | Uint8Array): Promise<void> {
     pending.push(Buffer.from(chunk));
     return drain();
   };
 }
 
-export async function runMcpServer() {
+export async function runMcpServer(): Promise<void> {
   const runtime = await createRuntime();
   const { dispatch } = createMcpDispatch(runtime, PROTOCOL_VERSION);
 
@@ -87,7 +91,7 @@ export async function runMcpServer() {
     }
 
     try {
-      const result = await dispatch(message.method, message.params);
+      const result = await dispatch(message.method!, message.params);
       process.stdout.write(
         encodeMessage({
           jsonrpc: "2.0",
@@ -96,11 +100,12 @@ export async function runMcpServer() {
         }),
       );
     } catch (error) {
+      const err = error as Error & { jsonRpcCode?: number };
       process.stdout.write(
         encodeMessage({
           jsonrpc: "2.0",
           id: message.id,
-          error: createJsonRpcError(error.jsonRpcCode ?? -32000, error.message),
+          error: createJsonRpcError(err.jsonRpcCode ?? -32000, err.message),
         }),
       );
     }
@@ -109,8 +114,8 @@ export async function runMcpServer() {
   process.stdout.on("error", () => {});
   process.stdin.on("error", () => {});
 
-  process.stdin.on("data", (chunk) => {
-    read(chunk).catch((error) => {
+  process.stdin.on("data", (chunk: Buffer) => {
+    read(chunk).catch((error: Error & { jsonRpcCode?: number; stack?: string }) => {
       if (error.jsonRpcCode === -32700) {
         process.stdout.write(
           encodeMessage({

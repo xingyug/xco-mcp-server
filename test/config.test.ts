@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import type { XcoConfig } from "../src/types.js";
 import { saveConfig } from "../src/lib/config.js";
 
 test("saveConfig does not persist plaintext bastion passwords", async () => {
@@ -11,9 +12,7 @@ test("saveConfig does not persist plaintext bastion passwords", async () => {
   const configPath = path.join(tempDir, "config.json");
 
   await saveConfig(
-    {
-      configPath,
-    },
+    { configPath } as XcoConfig,
     {
       activeVersion: "3.7.0",
       bastionPassword: "super-secret",
@@ -22,7 +21,7 @@ test("saveConfig does not persist plaintext bastion passwords", async () => {
     },
   );
 
-  const persisted = JSON.parse(await fs.readFile(configPath, "utf8"));
+  const persisted = JSON.parse(await fs.readFile(configPath, "utf8")) as Record<string, unknown>;
   assert.equal(persisted.bastionPassword, undefined);
   assert.equal(persisted.bastionPasswordEnv, "XCO_BASTION_PASSWORD");
   assert.equal(persisted.bastionPasswordAuth, true);

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import type { XcoConfig, TunnelSettings, ActiveTunnel } from "../src/types.js";
 import {
   buildTunnelMatchPattern,
   buildSshTunnelCommand,
@@ -23,7 +24,7 @@ test("deriveTunnelTarget falls back to the logical base URL host and port", () =
   assert.deepEqual(
     deriveTunnelTarget(
       "https://xco.internal.example",
-      getTunnelSettings({}, {}),
+      getTunnelSettings({} as XcoConfig, {}),
     ),
     {
       targetHost: "xco.internal.example",
@@ -41,7 +42,12 @@ test("buildSshTunnelCommand emits ProxyJump and local forward arguments", () => 
     targetHost: null,
     targetPort: null,
     strictHostKeyChecking: false,
-  });
+    passwordAuth: false,
+    password: null,
+    passwords: [],
+    explicitMultiPassword: false,
+    passwordEnv: null,
+  } as TunnelSettings);
 
   assert.equal(command.command, "ssh");
   assert.deepEqual(command.args, [
@@ -71,12 +77,15 @@ test("buildSshTunnelCommand uses ssh with password-auth compatible options", () 
     identityFile: null,
     passwordAuth: true,
     password: "super-secret",
+    passwords: ["super-secret"],
+    explicitMultiPassword: false,
+    passwordEnv: null,
     bindHost: "127.0.0.1",
     localPort: 9443,
     targetHost: null,
     targetPort: null,
     strictHostKeyChecking: true,
-  });
+  } as TunnelSettings);
 
   assert.equal(command.command, "ssh");
   assert.deepEqual(command.args, [
@@ -104,33 +113,33 @@ test("getTunnelSettings resolves home-relative identity file paths", () => {
     {
       cwd: "/tmp/project",
       bastionIdentityFile: "~/.ssh/id_ed25519",
-    },
+    } as XcoConfig,
     {},
   );
 
-  assert.match(settings.identityFile, /\/\.ssh\/id_ed25519$/);
+  assert.match(settings.identityFile!, /\/\.ssh\/id_ed25519$/);
 });
 
 test("terminateTunnelProcess kills the detached process group when available", () => {
   const originalKill = process.kill;
-  const calls = [];
+  const calls: [number, string][] = [];
 
-  process.kill = (pid, signal) => {
+  process.kill = ((pid: number, signal: string) => {
     calls.push([pid, signal]);
     return true;
-  };
+  }) as typeof process.kill;
 
   try {
     const child = {
       pid: 4321,
-      kill() {
+      kill(): boolean {
         throw new Error(
           "child.kill should not be used when process group kill succeeds",
         );
       },
     };
 
-    assert.equal(terminateTunnelProcess(child), true);
+    assert.equal(terminateTunnelProcess(child as unknown as Parameters<typeof terminateTunnelProcess>[0]), true);
     assert.deepEqual(calls, [[-4321, "SIGTERM"]]);
   } finally {
     process.kill = originalKill;
@@ -138,16 +147,16 @@ test("terminateTunnelProcess kills the detached process group when available", (
 });
 
 test("terminateTunnelProcess falls back to child.kill when pid is unavailable", () => {
-  const calls = [];
+  const calls: string[] = [];
   const child = {
-    pid: null,
-    kill(signal) {
+    pid: null as number | null,
+    kill(signal: string): boolean {
       calls.push(signal);
       return true;
     },
   };
 
-  assert.equal(terminateTunnelProcess(child), true);
+  assert.equal(terminateTunnelProcess(child as unknown as Parameters<typeof terminateTunnelProcess>[0]), true);
   assert.deepEqual(calls, ["SIGTERM"]);
 });
 
@@ -158,7 +167,7 @@ test("buildTunnelMatchPattern matches the unique local forward tuple", () => {
       localPort: 9443,
       targetHost: "10.20.30.40",
       targetPort: 8080,
-    }),
+    } as ActiveTunnel),
     String.raw`ssh .* -L 127\.0\.0\.1:9443:10\.20\.30\.40:8080( |$)`,
   );
 });
@@ -171,7 +180,7 @@ test("getTunnelSettings returns single password without explicitMultiPassword", 
       bastionJumps: "user@hop1,user@hop2",
       bastionPassword: "shared-pass",
       bastionPasswordAuth: true,
-    },
+    } as unknown as XcoConfig,
     {},
   );
   assert.deepEqual(settings.passwords, ["shared-pass"]);
@@ -185,7 +194,7 @@ test("getTunnelSettings returns explicit multi-password with explicitMultiPasswo
       bastionJumps: "user@hop1,user@hop2",
       bastionPasswords: "pass1,pass2",
       bastionPasswordAuth: true,
-    },
+    } as unknown as XcoConfig,
     {},
   );
   assert.deepEqual(settings.passwords, ["pass1", "pass2"]);
@@ -200,7 +209,7 @@ test("getTunnelSettings throws on password count mismatch", () => {
           bastionJumps: "user@hop1,user@hop2,user@hop3",
           bastionPasswords: "pass1,pass2",
           bastionPasswordAuth: true,
-        },
+        } as unknown as XcoConfig,
         {},
       ),
     /password count mismatch.*2.*3/i,
@@ -215,7 +224,7 @@ test("getTunnelSettings throws on empty password in explicit multi-password", ()
           bastionJumps: "user@hop1,user@hop2",
           bastionPasswords: "pass1,",
           bastionPasswordAuth: true,
-        },
+        } as unknown as XcoConfig,
         {},
       ),
     /empty/i,
@@ -233,7 +242,7 @@ test("getTunnelSettings resolves per-hop passwords from env vars", () => {
         bastionJumps: "user@hop1,user@hop2",
         bastionPasswordsEnv: `${envKey1},${envKey2}`,
         bastionPasswordAuth: true,
-      },
+      } as unknown as XcoConfig,
       {},
     );
     assert.deepEqual(settings.passwords, ["envPass1", "envPass2"]);
@@ -253,7 +262,7 @@ test("getTunnelSettings throws when env var not set for per-hop passwords", () =
           bastionJumps: "user@hop1",
           bastionPasswordsEnv: envKey,
           bastionPasswordAuth: true,
-        },
+        } as unknown as XcoConfig,
         {},
       ),
     /not set/i,
@@ -266,7 +275,7 @@ test("buildSshTunnelSpec accepts plural-only passwords without singular password
       bastionJumps: "user@hop1,user@hop2",
       bastionPasswords: "pass1,pass2",
       bastionPasswordAuth: true,
-    },
+    } as unknown as XcoConfig,
     {},
   );
   // Should NOT throw even though settings.password is null
@@ -286,8 +295,15 @@ test("buildSshTunnelSpec rejects passwordAuth with no password at all", () => {
         passwordAuth: true,
         password: null,
         passwords: [],
+        explicitMultiPassword: false,
+        passwordEnv: null,
+        identityFile: null,
+        bindHost: "127.0.0.1",
         localPort: 9999,
-      }),
+        targetHost: null,
+        targetPort: null,
+        strictHostKeyChecking: null,
+      } as TunnelSettings),
     /no bastion password/i,
   );
 });
@@ -311,7 +327,7 @@ test("getTunnelSettings trims whitespace from per-hop passwords", () => {
       bastionJumps: "user@hop1,user@hop2",
       bastionPasswords: " pass1 , pass2 ",
       bastionPasswordAuth: true,
-    },
+    } as unknown as XcoConfig,
     {},
   );
   assert.deepEqual(settings.passwords, ["pass1", "pass2"]);

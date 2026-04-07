@@ -1,15 +1,39 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
+import type { AddressInfo } from "node:net";
 
 import {
   createMcpHttpHandler,
   PROTOCOL_VERSION,
 } from "../src/mcp-http-transport.js";
+import type { XcoRuntime } from "../src/lib/runtime.js";
+
+/* ---- types for test helpers ---- */
+
+interface TestContext {
+  server: http.Server;
+  baseUrl: string;
+  handleMcp: ReturnType<typeof createMcpHttpHandler>;
+  close: () => void;
+}
+
+interface JsonRpcBody {
+  jsonrpc: string;
+  id?: number;
+  result?: Record<string, unknown> & {
+    protocolVersion?: string;
+    serverInfo?: { name: string };
+    capabilities?: { tools?: unknown };
+    tools?: Array<{ name: string }>;
+    content?: Array<{ type: string; text: string }>;
+  };
+  error?: { code: number; message: string };
+}
 
 /* ---- mock runtime ---- */
 
-function createMockRuntime() {
+function createMockRuntime(): XcoRuntime {
   return {
     getTools() {
       return [
@@ -20,28 +44,28 @@ function createMockRuntime() {
         },
       ];
     },
-    async callToolForMcp(name, args) {
+    async callToolForMcp(name: string, args: Record<string, unknown>) {
       return {
         content: [{ type: "text", text: JSON.stringify({ tool: name, args }) }],
       };
     },
-  };
+  } as unknown as XcoRuntime;
 }
 
 /* ---- helpers ---- */
 
-function startServer() {
+function startServer(): Promise<TestContext> {
   const runtime = createMockRuntime();
   const handleMcp = createMcpHttpHandler(runtime);
   const server = http.createServer((req, res) => {
-    handleMcp(req, res).catch((err) => {
+    handleMcp(req, res).catch((err: Error) => {
       res.writeHead(500);
       res.end(err.message);
     });
   });
-  return new Promise((resolve) => {
+  return new Promise<TestContext>((resolve) => {
     server.listen(0, "127.0.0.1", () => {
-      const { port } = server.address();
+      const { port } = server.address() as AddressInfo;
       resolve({
         server,
         baseUrl: `http://127.0.0.1:${port}`,
@@ -52,7 +76,7 @@ function startServer() {
   });
 }
 
-async function jsonPost(baseUrl, body, headers = {}) {
+async function jsonPost(baseUrl: string, body: unknown, headers: Record<string, string> = {}): Promise<Response> {
   const res = await fetch(`${baseUrl}/mcp`, {
     method: "POST",
     headers: {
@@ -65,7 +89,7 @@ async function jsonPost(baseUrl, body, headers = {}) {
   return res;
 }
 
-async function initializeSession(baseUrl) {
+async function initializeSession(baseUrl: string): Promise<{ sessionId: string; body: JsonRpcBody }> {
   const res = await jsonPost(baseUrl, {
     jsonrpc: "2.0",
     id: 1,
@@ -76,8 +100,8 @@ async function initializeSession(baseUrl) {
       clientInfo: { name: "test-client", version: "1.0.0" },
     },
   });
-  const sessionId = res.headers.get("mcp-session-id");
-  const body = await res.json();
+  const sessionId = res.headers.get("mcp-session-id")!;
+  const body = (await res.json()) as JsonRpcBody;
   return { sessionId, body };
 }
 
@@ -90,9 +114,9 @@ test("POST /mcp initialize returns protocol version and session ID", async () =>
     assert.ok(sessionId, "should return Mcp-Session-Id header");
     assert.equal(body.jsonrpc, "2.0");
     assert.equal(body.id, 1);
-    assert.equal(body.result.protocolVersion, PROTOCOL_VERSION);
-    assert.equal(body.result.serverInfo.name, "xco-mcp-server");
-    assert.ok(body.result.capabilities.tools);
+    assert.equal(body.result!.protocolVersion, PROTOCOL_VERSION);
+    assert.equal(body.result!.serverInfo!.name, "xco-mcp-server");
+    assert.ok(body.result!.capabilities!.tools);
   } finally {
     ctx.close();
   }
@@ -109,7 +133,7 @@ test("POST /mcp tools/list requires valid session", async () => {
       params: {},
     });
     assert.equal(res.status, 400);
-    const body = await res.json();
+    const body = (await res.json()) as JsonRpcBody;
     assert.ok(body.error);
 
     // With valid session → 200
@@ -125,9 +149,9 @@ test("POST /mcp tools/list requires valid session", async () => {
       { "mcp-session-id": sessionId },
     );
     assert.equal(res2.status, 200);
-    const body2 = await res2.json();
-    assert.ok(Array.isArray(body2.result.tools));
-    assert.equal(body2.result.tools[0].name, "test_tool");
+    const body2 = (await res2.json()) as JsonRpcBody;
+    assert.ok(Array.isArray(body2.result!.tools));
+    assert.equal(body2.result!.tools![0].name, "test_tool");
   } finally {
     ctx.close();
   }
@@ -148,9 +172,9 @@ test("POST /mcp tools/call dispatches to runtime", async () => {
       { "mcp-session-id": sessionId },
     );
     assert.equal(res.status, 200);
-    const body = await res.json();
+    const body = (await res.json()) as JsonRpcBody;
     assert.equal(body.id, 4);
-    const content = JSON.parse(body.result.content[0].text);
+    const content = JSON.parse(body.result!.content![0].text) as Record<string, unknown>;
     assert.equal(content.tool, "test_tool");
     assert.deepEqual(content.args, { key: "value" });
   } finally {
@@ -173,7 +197,7 @@ test("POST /mcp ping returns empty result", async () => {
       { "mcp-session-id": sessionId },
     );
     assert.equal(res.status, 200);
-    const body = await res.json();
+    const body = (await res.json()) as JsonRpcBody;
     assert.deepEqual(body.result, {});
   } finally {
     ctx.close();
@@ -207,8 +231,8 @@ test("POST /mcp invalid JSON returns parse error", async () => {
       body: "not json",
     });
     assert.equal(res.status, 400);
-    const body = await res.json();
-    assert.equal(body.error.code, -32700);
+    const body = (await res.json()) as JsonRpcBody;
+    assert.equal(body.error!.code, -32700);
   } finally {
     ctx.close();
   }
@@ -229,8 +253,8 @@ test("POST /mcp unknown method returns -32601", async () => {
       { "mcp-session-id": sessionId },
     );
     assert.equal(res.status, 200);
-    const body = await res.json();
-    assert.equal(body.error.code, -32601);
+    const body = (await res.json()) as JsonRpcBody;
+    assert.equal(body.error!.code, -32601);
   } finally {
     ctx.close();
   }
@@ -250,11 +274,11 @@ test("POST /mcp batch with mixed requests and notifications", async () => {
       { "mcp-session-id": sessionId },
     );
     assert.equal(res.status, 200);
-    const body = await res.json();
+    const body = (await res.json()) as JsonRpcBody[];
     assert.ok(Array.isArray(body));
     assert.equal(body.length, 2); // 2 requests, 1 notification
     assert.deepEqual(body[0].result, {}); // ping
-    assert.ok(Array.isArray(body[1].result.tools)); // tools/list
+    assert.ok(Array.isArray(body[1].result!.tools)); // tools/list
   } finally {
     ctx.close();
   }
@@ -341,10 +365,10 @@ test("OPTIONS /mcp returns CORS headers", async () => {
   try {
     const res = await fetch(`${ctx.baseUrl}/mcp`, { method: "OPTIONS" });
     assert.equal(res.status, 204);
-    assert.ok(res.headers.get("access-control-allow-methods").includes("POST"));
+    assert.ok(res.headers.get("access-control-allow-methods")!.includes("POST"));
     assert.ok(
       res.headers
-        .get("access-control-allow-headers")
+        .get("access-control-allow-headers")!
         .includes("mcp-session-id"),
     );
   } finally {
@@ -368,7 +392,7 @@ test("full session lifecycle: initialize → tools/list → tools/call → delet
     // 1. Initialize
     const { sessionId, body: initBody } = await initializeSession(ctx.baseUrl);
     assert.ok(sessionId);
-    assert.equal(initBody.result.protocolVersion, PROTOCOL_VERSION);
+    assert.equal(initBody.result!.protocolVersion, PROTOCOL_VERSION);
 
     // 2. Send initialized notification
     const notifRes = await jsonPost(
@@ -384,8 +408,8 @@ test("full session lifecycle: initialize → tools/list → tools/call → delet
       { jsonrpc: "2.0", id: 30, method: "tools/list", params: {} },
       { "mcp-session-id": sessionId },
     );
-    const listBody = await listRes.json();
-    assert.ok(listBody.result.tools.length > 0);
+    const listBody = (await listRes.json()) as JsonRpcBody;
+    assert.ok(listBody.result!.tools!.length > 0);
 
     // 4. Call a tool
     const callRes = await jsonPost(
@@ -398,8 +422,8 @@ test("full session lifecycle: initialize → tools/list → tools/call → delet
       },
       { "mcp-session-id": sessionId },
     );
-    const callBody = await callRes.json();
-    assert.ok(callBody.result.content);
+    const callBody = (await callRes.json()) as JsonRpcBody;
+    assert.ok(callBody.result!.content);
 
     // 5. Delete session
     const delRes = await fetch(`${ctx.baseUrl}/mcp`, {
@@ -425,17 +449,17 @@ test("shared dispatch: mcp-dispatch module works with mock runtime", async () =>
   const runtime = createMockRuntime();
   const { dispatch } = createMcpDispatch(runtime, "test-version");
 
-  const initResult = await dispatch("initialize", {});
+  const initResult = (await dispatch("initialize", {})) as Record<string, unknown>;
   assert.equal(initResult.protocolVersion, "test-version");
 
   const pingResult = await dispatch("ping", {});
   assert.deepEqual(pingResult, {});
 
-  const toolsResult = await dispatch("tools/list", {});
-  assert.equal(toolsResult.tools[0].name, "test_tool");
+  const toolsResult = (await dispatch("tools/list", {})) as Record<string, unknown>;
+  assert.equal((toolsResult.tools as Array<{ name: string }>)[0].name, "test_tool");
 
   await assert.rejects(
     () => dispatch("unknown/method", {}),
-    (err) => err.jsonRpcCode === -32601,
+    (err: unknown) => (err as { jsonRpcCode: number }).jsonRpcCode === -32601,
   );
 });

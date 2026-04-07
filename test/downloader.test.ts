@@ -157,7 +157,7 @@ test("downloadVersionBundle falls back from patch release docs to the matching x
   const tenantDocUrl =
     "https://documentation.extremenetworks.com/ExtremeCloud%20Orchestrator%20v3.8.0%20API%20Documents/tenant.html";
 
-  const fetchImpl = async (url) => {
+  const fetchImpl = async (url: string): Promise<{ ok: boolean; status: number; statusText: string; text(): Promise<string> }> => {
     const bodyByUrl = new Map([
       [
         fallbackSupportUrl,
@@ -178,7 +178,7 @@ test("downloadVersionBundle falls back from patch release docs to the matching x
       status: 200,
       statusText: "OK",
       async text() {
-        return bodyByUrl.get(url);
+        return bodyByUrl.get(url)!;
       },
     };
   };
@@ -186,7 +186,7 @@ test("downloadVersionBundle falls back from patch release docs to the matching x
   const manifest = await downloadVersionBundle("3.8.7", {
     xcoHome: tempRoot,
     specSource: "official",
-    fetchImpl,
+    fetchImpl: fetchImpl as unknown as typeof globalThis.fetch,
   });
 
   assert.equal(manifest.version, "3.8.7");

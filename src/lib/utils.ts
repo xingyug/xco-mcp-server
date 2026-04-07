@@ -12,7 +12,7 @@ export const HTTP_METHODS = new Set([
   "options",
 ]);
 
-export function slugify(value) {
+export function slugify(value: string): string {
   return String(value)
     .normalize("NFKD")
     .replace(/[^\w\s-]/g, "")
@@ -22,19 +22,19 @@ export function slugify(value) {
     .toLowerCase();
 }
 
-export function versionToSlug(version) {
+export function versionToSlug(version: string): string {
   return String(version).trim();
 }
 
-export function versionToSupportPath(version) {
+export function versionToSupportPath(version: string): string {
   return versionToSlug(version).replaceAll(".", "-");
 }
 
-export function buildSupportDocsUrl(version) {
+export function buildSupportDocsUrl(version: string): string {
   return `https://supportdocs.extremenetworks.com/support/documentation/extremecloud-orchestrator-${versionToSupportPath(version)}/`;
 }
 
-export function summarizeText(value, fallback = "") {
+export function summarizeText(value: unknown, fallback = ""): string {
   if (!value) {
     return fallback;
   }
@@ -42,7 +42,7 @@ export function summarizeText(value, fallback = "") {
   return String(value).replace(/\s+/g, " ").trim();
 }
 
-export function inferServiceSlugFromTitle(title, docUrl) {
+export function inferServiceSlugFromTitle(title: string, docUrl: string): string {
   if (title) {
     return slugify(
       title
@@ -56,7 +56,7 @@ export function inferServiceSlugFromTitle(title, docUrl) {
   return slugify(basename);
 }
 
-export async function fileExists(filePath) {
+export async function fileExists(filePath: string): Promise<boolean> {
   try {
     await fs.access(filePath);
     return true;
@@ -65,11 +65,11 @@ export async function fileExists(filePath) {
   }
 }
 
-export async function listJsonFiles(rootDir) {
-  const output = [];
+export async function listJsonFiles(rootDir: string): Promise<string[]> {
+  const output: string[] = [];
 
-  async function walk(currentDir) {
-    let entries = [];
+  async function walk(currentDir: string): Promise<void> {
+    let entries: import("node:fs").Dirent[] = [];
     try {
       entries = await fs.readdir(currentDir, { withFileTypes: true });
     } catch {
@@ -94,8 +94,8 @@ export async function listJsonFiles(rootDir) {
   return output;
 }
 
-export function mergeDefined(...objects) {
-  const output = {};
+export function mergeDefined(...objects: Array<Record<string, unknown> | null | undefined>): Record<string, unknown> {
+  const output: Record<string, unknown> = {};
 
   for (const object of objects) {
     if (!object || typeof object !== "object") {
@@ -112,7 +112,7 @@ export function mergeDefined(...objects) {
   return output;
 }
 
-export function makeToolName(serviceSlug, operationId, method, routePath) {
+export function makeToolName(serviceSlug: string, operationId: string | null, method: string, routePath: string): string {
   const safeServiceSlug = String(serviceSlug).replace(/-/g, "_");
 
   if (operationId) {
@@ -123,7 +123,7 @@ export function makeToolName(serviceSlug, operationId, method, routePath) {
   return `${safeServiceSlug}__${routeSlug}`;
 }
 
-export function pickJsonContentType(content = {}) {
+export function pickJsonContentType(content: Record<string, unknown> = {}): string | null {
   if (content["application/json"]) {
     return "application/json";
   }
@@ -132,7 +132,7 @@ export function pickJsonContentType(content = {}) {
   return first ?? null;
 }
 
-export function getContentSchema(content = {}) {
+export function getContentSchema(content: Record<string, Record<string, unknown>> = {}): { contentType: string | null; schema: unknown } {
   const contentType = pickJsonContentType(content);
   if (!contentType) {
     return { contentType: null, schema: null };
@@ -140,11 +140,11 @@ export function getContentSchema(content = {}) {
 
   return {
     contentType,
-    schema: content[contentType]?.schema ?? null,
+    schema: (content[contentType] as Record<string, unknown>)?.schema ?? null,
   };
 }
 
-export function encodeQueryValue(searchParams, key, value) {
+export function encodeQueryValue(searchParams: URLSearchParams, key: string, value: unknown): void {
   if (value === undefined || value === null) {
     return;
   }
@@ -164,17 +164,17 @@ export function encodeQueryValue(searchParams, key, value) {
   searchParams.append(key, String(value));
 }
 
-export function ensureObject(value, label) {
+export function ensureObject(value: unknown, label: string): Record<string, unknown> {
   if (value && typeof value === "object" && !Array.isArray(value)) {
-    return value;
+    return value as Record<string, unknown>;
   }
 
   throw new Error(`${label} must be an object.`);
 }
 
-export function toAbsolutePath(cwd, value) {
+export function toAbsolutePath(cwd: string, value: string | null | undefined): string | null {
   if (!value) {
-    return value;
+    return value as null;
   }
 
   if (value === "~") {
@@ -188,8 +188,8 @@ export function toAbsolutePath(cwd, value) {
   return path.isAbsolute(value) ? value : path.resolve(cwd, value);
 }
 
-export function uniqueBy(items, getKey) {
-  const seen = new Set();
+export function uniqueBy<T>(items: T[], getKey: (item: T) => string): T[] {
+  const seen = new Set<string>();
   return items.filter((item) => {
     const key = getKey(item);
     if (seen.has(key)) {

@@ -9,8 +9,8 @@ import {
   maskToken,
 } from "../src/lib/auth.js";
 
-function makeJwt(payload) {
-  const encode = (value) =>
+function makeJwt(payload: Record<string, unknown>): string {
+  const encode = (value: unknown): string =>
     Buffer.from(JSON.stringify(value)).toString("base64url");
   return `${encode({ alg: "HS256", typ: "JWT" })}.${encode(payload)}.signature`;
 }

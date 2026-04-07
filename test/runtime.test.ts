@@ -16,12 +16,12 @@ test("runtime loads manual specs and generates tools", async () => {
   assert.equal(runtime.operations.length, 3);
   assert.ok(runtime.operationMap.has("tenant_service__gettenants"));
   assert.equal(
-    runtime.operationMap.get("tenant_service__gettenants").operation
+    runtime.operationMap.get("tenant_service__gettenants")!.operation
       .requiresAuth,
     true,
   );
   assert.equal(
-    runtime.operationMap.get("tenant_service__gethealth").operation
+    runtime.operationMap.get("tenant_service__gethealth")!.operation
       .requiresAuth,
     false,
   );

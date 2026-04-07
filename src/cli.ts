@@ -3,9 +3,14 @@
 import { createRuntime } from "./lib/runtime.js";
 import { parseJsonText } from "./lib/json.js";
 
-function parseFlags(argv) {
-  const positional = [];
-  const flags = {};
+interface ParsedArgs {
+  positional: string[];
+  flags: Record<string, string | boolean>;
+}
+
+function parseFlags(argv: string[]): ParsedArgs {
+  const positional: string[] = [];
+  const flags: Record<string, string | boolean> = {};
 
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
@@ -28,7 +33,7 @@ function parseFlags(argv) {
   return { positional, flags };
 }
 
-function parseBoolean(value, defaultValue = false) {
+function parseBoolean(value: unknown, defaultValue = false): boolean {
   if (value === undefined) {
     return defaultValue;
   }
@@ -51,7 +56,7 @@ function parseBoolean(value, defaultValue = false) {
   return Boolean(value);
 }
 
-function usage() {
+function usage(): string {
   return `Usage:
   xco-call setup --version 3.7.0 [--base-url https://xco.company.example] [--spec-source official|instance|auto] [--docs-url https://xco.company.example/docs/] [--readonly true]
   xco-call use-version --version 3.7.0 [--base-url https://xco.company.example] [--readonly true]
@@ -68,7 +73,7 @@ function usage() {
 `;
 }
 
-function sharedConnectionFlags(flags) {
+function sharedConnectionFlags(flags: Record<string, string | boolean>): Record<string, unknown> {
   return {
     specSource: flags["spec-source"],
     docsUrl: flags["docs-url"],
@@ -92,11 +97,11 @@ function sharedConnectionFlags(flags) {
     bastionTargetPort:
       flags["bastion-target-port"] === undefined
         ? undefined
-        : Number.parseInt(flags["bastion-target-port"], 10),
+        : Number.parseInt(String(flags["bastion-target-port"]), 10),
     bastionLocalPort:
       flags["bastion-local-port"] === undefined
         ? undefined
-        : Number.parseInt(flags["bastion-local-port"], 10),
+        : Number.parseInt(String(flags["bastion-local-port"]), 10),
     bastionBindHost: flags["bastion-bind-host"],
     bastionStrictHostKeyChecking:
       flags["bastion-strict-host-key-checking"] === undefined
@@ -106,7 +111,7 @@ function sharedConnectionFlags(flags) {
   };
 }
 
-async function main() {
+async function main(): Promise<void> {
   const runtime = await createRuntime();
   try {
     const [command, ...rest] = process.argv.slice(2);
@@ -195,7 +200,7 @@ async function main() {
       }
 
       const input = flags.json
-        ? parseJsonText(flags.json, "tool arguments")
+        ? (parseJsonText(String(flags.json), "tool arguments") as Record<string, unknown>)
         : {};
       const result = await runtime.callTool(toolName, input);
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
@@ -203,7 +208,7 @@ async function main() {
     }
 
     if (command === "raw") {
-      const input = {
+      const input: Record<string, unknown> = {
         method: flags.method,
         servicePrefix: flags["service-prefix"],
         path: flags.path,
@@ -212,12 +217,12 @@ async function main() {
             ? undefined
             : parseBoolean(flags.authenticate),
         query: flags.query
-          ? parseJsonText(flags.query, "query JSON")
+          ? parseJsonText(String(flags.query), "query JSON")
           : undefined,
         headers: flags.headers
-          ? parseJsonText(flags.headers, "headers JSON")
+          ? parseJsonText(String(flags.headers), "headers JSON")
           : undefined,
-        body: flags.body ? parseJsonText(flags.body, "body JSON") : undefined,
+        body: flags.body ? parseJsonText(String(flags.body), "body JSON") : undefined,
         ...sharedConnectionFlags(flags),
       };
       const result = await runtime.callMetaTool("xco_raw_request", input);
@@ -231,7 +236,8 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  process.stderr.write(`${error.stack ?? error.message}\n`);
+main().catch((error: unknown) => {
+  const err = error as Error;
+  process.stderr.write(`${err.stack ?? err.message}\n`);
   process.exitCode = 1;
 });

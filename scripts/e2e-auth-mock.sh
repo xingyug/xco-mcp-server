@@ -137,7 +137,7 @@ resolve_target() {
 
 persist_target_config() {
   resolve_target
-  env "XCO_HOME=$XCO_HOME" node "$REPO_DIR/src/cli.js" use-version \
+  env "XCO_HOME=$XCO_HOME" node "$REPO_DIR/dist/src/cli.js" use-version \
     --version "$VERSION" \
     --base-url "$BASE_URL" \
     --username "$USERNAME" \
@@ -184,7 +184,7 @@ log "Running setup against instance /docs through the bastion chain"
 run_json_command \
   "$SETUP_JSON" \
   "${AUTH_ENV[@]}" \
-  node "$REPO_DIR/src/cli.js" setup \
+  node "$REPO_DIR/dist/src/cli.js" setup \
     --version "$VERSION" \
     --spec-source instance \
     --base-url "$BASE_URL" \
@@ -204,7 +204,7 @@ fi
 persist_target_config
 
 log "Listing generated tools"
-run_json_command "$TOOLS_JSON" env "XCO_HOME=$XCO_HOME" node "$REPO_DIR/src/cli.js" tools
+run_json_command "$TOOLS_JSON" env "XCO_HOME=$XCO_HOME" node "$REPO_DIR/dist/src/cli.js" tools
 
 for required_tool in \
   auth__createaccesstoken \
@@ -224,7 +224,7 @@ log "Running xco_auth_login"
 run_json_command \
   "$LOGIN_JSON" \
   "${AUTH_ENV[@]}" \
-  node "$REPO_DIR/src/cli.js" auth login
+  node "$REPO_DIR/dist/src/cli.js" auth login
 
 SESSION_FILE="$XCO_HOME/session.json"
 if [[ ! -f "$SESSION_FILE" ]]; then
@@ -238,7 +238,7 @@ log "Calling generated auth__createaccesstoken"
 run_json_command \
   "$AUTH_CREATE_JSON" \
   "${BASE_ENV[@]}" \
-  node "$REPO_DIR/src/cli.js" call auth__createaccesstoken \
+  node "$REPO_DIR/dist/src/cli.js" call auth__createaccesstoken \
     --json "{\"body\":{\"username\":\"$USERNAME\",\"password\":\"${!LOGIN_PASSWORD_ENV_NAME}\"}}"
 
 GENERATED_REFRESH_TOKEN="$(json_query "$AUTH_CREATE_JSON" 'return data.body["refresh-token"];')"
@@ -250,7 +250,7 @@ log "Calling generated auth__refreshaccesstoken"
 run_json_command \
   "$AUTH_REFRESH_JSON" \
   "${BASE_ENV[@]}" \
-  node "$REPO_DIR/src/cli.js" call auth__refreshaccesstoken \
+  node "$REPO_DIR/dist/src/cli.js" call auth__refreshaccesstoken \
     --json "{\"body\":{\"grant-type\":\"refresh_token\",\"refresh-token\":\"$GENERATED_REFRESH_TOKEN\"}}"
 
 persist_target_config
@@ -259,7 +259,7 @@ log "Calling generated tenant__gethealth"
 run_json_command \
   "$TENANT_HEALTH_JSON" \
   "${BASE_ENV[@]}" \
-  node "$REPO_DIR/src/cli.js" call tenant__gethealth --json '{}'
+  node "$REPO_DIR/dist/src/cli.js" call tenant__gethealth --json '{}'
 
 persist_target_config
 
@@ -267,7 +267,7 @@ log "Calling generated tenant__gettenants before create"
 run_json_command \
   "$TENANT_LIST_BEFORE_JSON" \
   "${AUTH_ENV[@]}" \
-  node "$REPO_DIR/src/cli.js" call tenant__gettenants --json '{}'
+  node "$REPO_DIR/dist/src/cli.js" call tenant__gettenants --json '{}'
 
 REFRESHED_SESSION_UPDATED_AT="$(json_query "$SESSION_FILE" 'return Object.values(data.sessions)[0].updatedAt;')"
 REFRESHED_SESSION_REFRESH_TOKEN="$(json_query "$SESSION_FILE" 'return Object.values(data.sessions)[0].refreshToken;')"
@@ -286,7 +286,7 @@ log "Calling generated tenant__createtenant"
 run_json_command \
   "$TENANT_CREATE_JSON" \
   "${AUTH_ENV[@]}" \
-  node "$REPO_DIR/src/cli.js" call tenant__createtenant \
+  node "$REPO_DIR/dist/src/cli.js" call tenant__createtenant \
     --json '{"body":{"name":"Tenant-E2E"}}'
 
 persist_target_config
@@ -295,21 +295,21 @@ log "Calling generated tenant__gettenants after create"
 run_json_command \
   "$TENANT_LIST_AFTER_JSON" \
   "${AUTH_ENV[@]}" \
-  node "$REPO_DIR/src/cli.js" call tenant__gettenants --json '{}'
+  node "$REPO_DIR/dist/src/cli.js" call tenant__gettenants --json '{}'
 
 if ! grep -q '"Tenant-E2E"' "$TENANT_LIST_AFTER_JSON"; then
   fail "Tenant-E2E was not returned after tenant__createtenant"
 fi
 
 log "Reading auth status"
-run_json_command "$AUTH_STATUS_JSON" env "XCO_HOME=$XCO_HOME" node "$REPO_DIR/src/cli.js" auth status
+run_json_command "$AUTH_STATUS_JSON" env "XCO_HOME=$XCO_HOME" node "$REPO_DIR/dist/src/cli.js" auth status
 
 if [[ "$VERIFY_READONLY" == "true" ]]; then
   log "Enabling readonly mode"
-  env "XCO_HOME=$XCO_HOME" node "$REPO_DIR/src/cli.js" use-version --version "$VERSION" --readonly true >/dev/null
+  env "XCO_HOME=$XCO_HOME" node "$REPO_DIR/dist/src/cli.js" use-version --version "$VERSION" --readonly true >/dev/null
 
   log "Verifying readonly tool list"
-  run_json_command "$READONLY_TOOLS_JSON" env "XCO_HOME=$XCO_HOME" node "$REPO_DIR/src/cli.js" tools
+  run_json_command "$READONLY_TOOLS_JSON" env "XCO_HOME=$XCO_HOME" node "$REPO_DIR/dist/src/cli.js" tools
 
   if grep -q '"name": "tenant__createtenant"' "$READONLY_TOOLS_JSON"; then
     fail "tenant__createtenant should not be exposed in readonly mode"
@@ -321,7 +321,7 @@ if [[ "$VERIFY_READONLY" == "true" ]]; then
   run_json_command \
     "$READONLY_HEALTH_JSON" \
     "${BASE_ENV[@]}" \
-    node "$REPO_DIR/src/cli.js" call tenant__gethealth --json '{}'
+    node "$REPO_DIR/dist/src/cli.js" call tenant__gethealth --json '{}'
 
   persist_target_config
 
@@ -329,7 +329,7 @@ if [[ "$VERIFY_READONLY" == "true" ]]; then
   run_expect_failure \
     "$READONLY_BLOCKED_TXT" \
     "${AUTH_ENV[@]}" \
-    node "$REPO_DIR/src/cli.js" raw \
+    node "$REPO_DIR/dist/src/cli.js" raw \
       --method POST \
       --service-prefix /v1/tenant \
       --path /tenants \

@@ -12,23 +12,45 @@
  */
 
 import crypto from "node:crypto";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { createMcpDispatch } from "./lib/mcp-dispatch.js";
+import type { XcoRuntime } from "./lib/runtime.js";
+import type { JsonRpcRequest, JsonRpcResponse } from "./types.js";
 
 const PROTOCOL_VERSION = "2025-03-26";
 const MAX_BODY_BYTES = 10 * 1024 * 1024;
 
-const CORS_HEADERS = {
+const CORS_HEADERS: Record<string, string> = {
   "access-control-allow-origin": "*",
   "access-control-expose-headers": "mcp-session-id",
 };
 
-export function createMcpHttpHandler(runtime) {
+interface McpSession {
+  id: string;
+  initialized: boolean;
+}
+
+interface BatchResult {
+  response: JsonRpcResponse;
+  sessionId?: string;
+}
+
+export type McpHttpHandler = ((req: IncomingMessage, res: ServerResponse) => Promise<void>) & {
+  sessions: Map<string, McpSession>;
+};
+
+export function createMcpHttpHandler(runtime: XcoRuntime): McpHttpHandler {
   const { dispatch } = createMcpDispatch(runtime, PROTOCOL_VERSION);
-  const sessions = new Map();
+  const sessions = new Map<string, McpSession>();
 
   /* ---- helpers ---- */
 
-  function sendJson(res, statusCode, payload, extraHeaders = {}) {
+  function sendJson(
+    res: ServerResponse,
+    statusCode: number,
+    payload: unknown,
+    extraHeaders: Record<string, string> = {},
+  ): void {
     const body = JSON.stringify(payload);
     res.writeHead(statusCode, {
       ...CORS_HEADERS,
@@ -39,7 +61,13 @@ export function createMcpHttpHandler(runtime) {
     res.end(body);
   }
 
-  function sendJsonRpcError(res, id, code, message, statusCode = 200) {
+  function sendJsonRpcError(
+    res: ServerResponse,
+    id: string | number | null,
+    code: number,
+    message: string,
+    statusCode = 200,
+  ): void {
     sendJson(res, statusCode, {
       jsonrpc: "2.0",
       id: id ?? null,
@@ -47,38 +75,39 @@ export function createMcpHttpHandler(runtime) {
     });
   }
 
-  function getSession(req) {
-    const id = req.headers["mcp-session-id"];
+  function getSession(req: IncomingMessage): McpSession | null {
+    const id = req.headers["mcp-session-id"] as string | undefined;
     if (!id) return null;
     return sessions.get(id) ?? null;
   }
 
-  async function readRequestBody(req) {
-    const chunks = [];
+  async function readRequestBody(req: IncomingMessage): Promise<string> {
+    const chunks: Buffer[] = [];
     let bytes = 0;
     for await (const chunk of req) {
-      bytes += chunk.length;
+      bytes += (chunk as Buffer).length;
       if (bytes > MAX_BODY_BYTES) {
         throw Object.assign(new Error("Request body too large"), {
           statusCode: 413,
         });
       }
-      chunks.push(chunk);
+      chunks.push(chunk as Buffer);
     }
     return Buffer.concat(chunks).toString("utf8");
   }
 
-  async function processRequest(message) {
+  async function processRequest(message: JsonRpcRequest): Promise<JsonRpcResponse> {
     try {
-      const result = await dispatch(message.method, message.params);
+      const result = await dispatch(message.method!, message.params);
       return { jsonrpc: "2.0", id: message.id, result };
     } catch (error) {
+      const err = error as Error & { jsonRpcCode?: number };
       return {
         jsonrpc: "2.0",
         id: message.id,
         error: {
-          code: error.jsonRpcCode ?? -32000,
-          message: error.message,
+          code: err.jsonRpcCode ?? -32000,
+          message: err.message,
         },
       };
     }
@@ -86,12 +115,12 @@ export function createMcpHttpHandler(runtime) {
 
   /* ---- POST ---- */
 
-  async function handlePost(req, res) {
-    let bodyStr;
+  async function handlePost(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    let bodyStr: string;
     try {
       bodyStr = await readRequestBody(req);
     } catch (error) {
-      if (error.statusCode === 413) {
+      if ((error as { statusCode?: number }).statusCode === 413) {
         res.writeHead(413, CORS_HEADERS);
         res.end();
         return;
@@ -99,9 +128,9 @@ export function createMcpHttpHandler(runtime) {
       throw error;
     }
 
-    let message;
+    let message: JsonRpcRequest | JsonRpcRequest[];
     try {
-      message = JSON.parse(bodyStr);
+      message = JSON.parse(bodyStr) as JsonRpcRequest | JsonRpcRequest[];
     } catch {
       return sendJsonRpcError(res, null, -32700, "Parse error", 400);
     }
@@ -131,7 +160,8 @@ export function createMcpHttpHandler(runtime) {
     if (
       !isRequest &&
       message.id !== undefined &&
-      (message.result !== undefined || message.error !== undefined)
+      ((message as unknown as JsonRpcResponse).result !== undefined ||
+       (message as unknown as JsonRpcResponse).error !== undefined)
     ) {
       res.writeHead(202, CORS_HEADERS);
       res.end();
@@ -156,7 +186,7 @@ export function createMcpHttpHandler(runtime) {
     if (!getSession(req)) {
       return sendJsonRpcError(
         res,
-        message.id,
+        message.id ?? null,
         -32000,
         "Bad Request: missing or invalid session",
         400,
@@ -169,12 +199,16 @@ export function createMcpHttpHandler(runtime) {
 
   /* --- batch --- */
 
-  async function handleBatch(req, res, messages) {
+  async function handleBatch(
+    req: IncomingMessage,
+    res: ServerResponse,
+    messages: JsonRpcRequest[],
+  ): Promise<void> {
     if (messages.length === 0) {
       return sendJsonRpcError(res, null, -32600, "Empty batch", 400);
     }
 
-    const results = [];
+    const results: BatchResult[] = [];
 
     for (const msg of messages) {
       const isRequest = msg.id !== undefined && msg.method !== undefined;
@@ -190,12 +224,9 @@ export function createMcpHttpHandler(runtime) {
 
       if (isRequest) {
         if (msg.method === "initialize") {
-          // initialize in a batch is unusual but handle it
           const sessionId = crypto.randomUUID();
           sessions.set(sessionId, { id: sessionId, initialized: false });
           const response = await processRequest(msg);
-          // Note: session ID cannot be per-message in a batch response.
-          // The last initialize in the batch wins the header.
           results.push({ response, sessionId });
           continue;
         }
@@ -229,8 +260,8 @@ export function createMcpHttpHandler(runtime) {
 
     // Extract any session ID from initialize responses
     const sessionEntry = results.find((r) => r.sessionId);
-    const extraHeaders = sessionEntry
-      ? { "mcp-session-id": sessionEntry.sessionId }
+    const extraHeaders: Record<string, string> = sessionEntry
+      ? { "mcp-session-id": sessionEntry.sessionId! }
       : {};
 
     const payload = results.map((r) => r.response);
@@ -239,10 +270,7 @@ export function createMcpHttpHandler(runtime) {
 
   /* ---- GET ---- */
 
-  function handleGet(req, res) {
-    // SSE stream for server-initiated messages.
-    // This server does not push server-initiated requests,
-    // so GET returns 405 per spec recommendation.
+  function handleGet(req: IncomingMessage, res: ServerResponse): void {
     const session = getSession(req);
     if (!session) {
       return sendJson(res, 400, { error: "Missing or invalid session" });
@@ -253,7 +281,7 @@ export function createMcpHttpHandler(runtime) {
 
   /* ---- DELETE ---- */
 
-  function handleDelete(req, res) {
+  function handleDelete(req: IncomingMessage, res: ServerResponse): void {
     const session = getSession(req);
     if (!session) {
       return sendJson(res, 400, { error: "Missing or invalid session" });
@@ -265,7 +293,7 @@ export function createMcpHttpHandler(runtime) {
 
   /* ---- entry point ---- */
 
-  async function handleMcp(req, res) {
+  async function handleMcp(req: IncomingMessage, res: ServerResponse): Promise<void> {
     // CORS preflight
     if (req.method === "OPTIONS") {
       res.writeHead(204, {
@@ -285,8 +313,8 @@ export function createMcpHttpHandler(runtime) {
     res.end();
   }
 
-  handleMcp.sessions = sessions;
-  return handleMcp;
+  (handleMcp as McpHttpHandler).sessions = sessions;
+  return handleMcp as McpHttpHandler;
 }
 
 export { PROTOCOL_VERSION };
