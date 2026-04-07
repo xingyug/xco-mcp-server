@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 
 import { createEventBus } from "../src/lib/event-bus.js";
 
-describe("createEventBus", () => {
-  it("delivers events to subscribers", () => {
+void describe("createEventBus", () => {
+  void it("delivers events to subscribers", () => {
     const bus = createEventBus();
-    const received: Array<Record<string, unknown>> = [];
+    const received: Record<string, unknown>[] = [];
     bus.subscribe((event) => received.push(event));
 
     bus.emit({ type: "test", value: 1 });
@@ -17,7 +17,7 @@ describe("createEventBus", () => {
     assert.equal(received[1].value, 2);
   });
 
-  it("supports multiple subscribers", () => {
+  void it("supports multiple subscribers", () => {
     const bus = createEventBus();
     let countA = 0;
     let countB = 0;
@@ -30,7 +30,7 @@ describe("createEventBus", () => {
     assert.equal(countB, 1);
   });
 
-  it("unsubscribe stops delivery", () => {
+  void it("unsubscribe stops delivery", () => {
     const bus = createEventBus();
     let count = 0;
     const unsub = bus.subscribe(() => count++);
@@ -42,7 +42,7 @@ describe("createEventBus", () => {
     assert.equal(count, 1);
   });
 
-  it("isolates listener errors from other subscribers", () => {
+  void it("isolates listener errors from other subscribers", () => {
     const bus = createEventBus();
     const received: string[] = [];
 
@@ -55,7 +55,7 @@ describe("createEventBus", () => {
     assert.equal(received[0], "test");
   });
 
-  it("works with zero subscribers", () => {
+  void it("works with zero subscribers", () => {
     const bus = createEventBus();
     // Should not throw
     bus.emit({ type: "lonely" });

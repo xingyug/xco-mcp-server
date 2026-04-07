@@ -12,7 +12,7 @@ import {
   terminateTunnelProcess,
 } from "../src/lib/tunnel.js";
 
-test("parseBastionJumps supports comma-separated multi-hop values", () => {
+void test("parseBastionJumps supports comma-separated multi-hop values", () => {
   assert.deepEqual(parseBastionJumps("user@jump1,user@jump2,user@jump3"), [
     "user@jump1",
     "user@jump2",
@@ -20,7 +20,7 @@ test("parseBastionJumps supports comma-separated multi-hop values", () => {
   ]);
 });
 
-test("deriveTunnelTarget falls back to the logical base URL host and port", () => {
+void test("deriveTunnelTarget falls back to the logical base URL host and port", () => {
   assert.deepEqual(
     deriveTunnelTarget(
       "https://xco.internal.example",
@@ -33,7 +33,7 @@ test("deriveTunnelTarget falls back to the logical base URL host and port", () =
   );
 });
 
-test("buildSshTunnelCommand emits ProxyJump and local forward arguments", () => {
+void test("buildSshTunnelCommand emits ProxyJump and local forward arguments", () => {
   const command = buildSshTunnelCommand("https://xco.internal.example", {
     jumps: ["user@jump1", "user@jump2"],
     identityFile: "/tmp/id_rsa",
@@ -71,7 +71,7 @@ test("buildSshTunnelCommand emits ProxyJump and local forward arguments", () => 
   ]);
 });
 
-test("buildSshTunnelCommand uses ssh with password-auth compatible options", () => {
+void test("buildSshTunnelCommand uses ssh with password-auth compatible options", () => {
   const command = buildSshTunnelCommand("https://xco.internal.example", {
     jumps: ["ops@jump1"],
     identityFile: null,
@@ -108,7 +108,7 @@ test("buildSshTunnelCommand uses ssh with password-auth compatible options", () 
   assert.deepEqual(command.env, {});
 });
 
-test("getTunnelSettings resolves home-relative identity file paths", () => {
+void test("getTunnelSettings resolves home-relative identity file paths", () => {
   const settings = getTunnelSettings(
     {
       cwd: "/tmp/project",
@@ -120,7 +120,8 @@ test("getTunnelSettings resolves home-relative identity file paths", () => {
   assert.match(settings.identityFile!, /\/\.ssh\/id_ed25519$/);
 });
 
-test("terminateTunnelProcess kills the detached process group when available", () => {
+void test("terminateTunnelProcess kills the detached process group when available", () => {
+  // eslint-disable-next-line @typescript-eslint/unbound-method
   const originalKill = process.kill;
   const calls: [number, string][] = [];
 
@@ -146,7 +147,7 @@ test("terminateTunnelProcess kills the detached process group when available", (
   }
 });
 
-test("terminateTunnelProcess falls back to child.kill when pid is unavailable", () => {
+void test("terminateTunnelProcess falls back to child.kill when pid is unavailable", () => {
   const calls: string[] = [];
   const child = {
     pid: null as number | null,
@@ -160,7 +161,7 @@ test("terminateTunnelProcess falls back to child.kill when pid is unavailable", 
   assert.deepEqual(calls, ["SIGTERM"]);
 });
 
-test("buildTunnelMatchPattern matches the unique local forward tuple", () => {
+void test("buildTunnelMatchPattern matches the unique local forward tuple", () => {
   assert.equal(
     buildTunnelMatchPattern({
       bindHost: "127.0.0.1",
@@ -174,7 +175,7 @@ test("buildTunnelMatchPattern matches the unique local forward tuple", () => {
 
 // --- Per-hop password tests ---
 
-test("getTunnelSettings returns single password without explicitMultiPassword", () => {
+void test("getTunnelSettings returns single password without explicitMultiPassword", () => {
   const settings = getTunnelSettings(
     {
       bastionJumps: "user@hop1,user@hop2",
@@ -188,7 +189,7 @@ test("getTunnelSettings returns single password without explicitMultiPassword", 
   assert.equal(settings.password, "shared-pass");
 });
 
-test("getTunnelSettings returns explicit multi-password with explicitMultiPassword flag", () => {
+void test("getTunnelSettings returns explicit multi-password with explicitMultiPassword flag", () => {
   const settings = getTunnelSettings(
     {
       bastionJumps: "user@hop1,user@hop2",
@@ -201,7 +202,7 @@ test("getTunnelSettings returns explicit multi-password with explicitMultiPasswo
   assert.equal(settings.explicitMultiPassword, true);
 });
 
-test("getTunnelSettings throws on password count mismatch", () => {
+void test("getTunnelSettings throws on password count mismatch", () => {
   assert.throws(
     () =>
       getTunnelSettings(
@@ -216,7 +217,7 @@ test("getTunnelSettings throws on password count mismatch", () => {
   );
 });
 
-test("getTunnelSettings throws on empty password in explicit multi-password", () => {
+void test("getTunnelSettings throws on empty password in explicit multi-password", () => {
   assert.throws(
     () =>
       getTunnelSettings(
@@ -231,7 +232,7 @@ test("getTunnelSettings throws on empty password in explicit multi-password", ()
   );
 });
 
-test("getTunnelSettings resolves per-hop passwords from env vars", () => {
+void test("getTunnelSettings resolves per-hop passwords from env vars", () => {
   const envKey1 = "XCO_TEST_HOP_PASS_A";
   const envKey2 = "XCO_TEST_HOP_PASS_B";
   process.env[envKey1] = "envPass1";
@@ -248,13 +249,13 @@ test("getTunnelSettings resolves per-hop passwords from env vars", () => {
     assert.deepEqual(settings.passwords, ["envPass1", "envPass2"]);
     assert.equal(settings.explicitMultiPassword, true);
   } finally {
-    delete process.env[envKey1];
-    delete process.env[envKey2];
+    Reflect.deleteProperty(process.env, envKey1);
+    Reflect.deleteProperty(process.env, envKey2);
   }
 });
 
-test("getTunnelSettings throws when env var not set for per-hop passwords", () => {
-  const envKey = "XCO_TEST_MISSING_" + Date.now();
+void test("getTunnelSettings throws when env var not set for per-hop passwords", () => {
+  const envKey = `XCO_TEST_MISSING_${Date.now()}`;
   assert.throws(
     () =>
       getTunnelSettings(
@@ -269,7 +270,7 @@ test("getTunnelSettings throws when env var not set for per-hop passwords", () =
   );
 });
 
-test("buildSshTunnelSpec accepts plural-only passwords without singular password", () => {
+void test("buildSshTunnelSpec accepts plural-only passwords without singular password", () => {
   const settings = getTunnelSettings(
     {
       bastionJumps: "user@hop1,user@hop2",
@@ -287,7 +288,7 @@ test("buildSshTunnelSpec accepts plural-only passwords without singular password
   assert.equal(spec.finalHop, "user@hop2");
 });
 
-test("buildSshTunnelSpec rejects passwordAuth with no password at all", () => {
+void test("buildSshTunnelSpec rejects passwordAuth with no password at all", () => {
   assert.throws(
     () =>
       buildSshTunnelSpec("https://xco.example.com", {
@@ -310,7 +311,7 @@ test("buildSshTunnelSpec rejects passwordAuth with no password at all", () => {
 
 // --- TLS config tests ---
 
-test("loadConfig reads XCO_TLS_REJECT_UNAUTHORIZED", async () => {
+void test("loadConfig reads XCO_TLS_REJECT_UNAUTHORIZED", async () => {
   const { loadConfig } = await import("../src/lib/config.js");
   process.env.XCO_TLS_REJECT_UNAUTHORIZED = "0";
   try {
@@ -321,7 +322,7 @@ test("loadConfig reads XCO_TLS_REJECT_UNAUTHORIZED", async () => {
   }
 });
 
-test("getTunnelSettings trims whitespace from per-hop passwords", () => {
+void test("getTunnelSettings trims whitespace from per-hop passwords", () => {
   const settings = getTunnelSettings(
     {
       bastionJumps: "user@hop1,user@hop2",
@@ -333,7 +334,7 @@ test("getTunnelSettings trims whitespace from per-hop passwords", () => {
   assert.deepEqual(settings.passwords, ["pass1", "pass2"]);
 });
 
-test("parseBastionJumps rejects shell metacharacters", () => {
+void test("parseBastionJumps rejects shell metacharacters", () => {
   assert.throws(
     () => parseBastionJumps("user@host; rm -rf /"),
     /Invalid bastion jump host format/,
@@ -348,13 +349,13 @@ test("parseBastionJumps rejects shell metacharacters", () => {
   );
 });
 
-test("parseBastionJumps accepts valid formats", () => {
+void test("parseBastionJumps accepts valid formats", () => {
   assert.deepEqual(parseBastionJumps("ops@192.168.1.1"), ["ops@192.168.1.1"]);
   assert.deepEqual(parseBastionJumps("user@host:22"), ["user@host:22"]);
   assert.deepEqual(parseBastionJumps("user@[::1]"), ["user@[::1]"]);
 });
 
-test("deriveTunnelTarget rejects invalid port", () => {
+void test("deriveTunnelTarget rejects invalid port", () => {
   const settings = { jumps: ["user@host"], targetPort: "abc" } as unknown as TunnelSettings;
   assert.throws(
     () => deriveTunnelTarget("http://example.com", settings),
@@ -362,7 +363,7 @@ test("deriveTunnelTarget rejects invalid port", () => {
   );
 });
 
-test("deriveTunnelTarget rejects out-of-range port", () => {
+void test("deriveTunnelTarget rejects out-of-range port", () => {
   const settings = { jumps: ["user@host"], targetPort: "99999" } as unknown as TunnelSettings;
   assert.throws(
     () => deriveTunnelTarget("http://example.com", settings),

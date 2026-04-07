@@ -31,9 +31,13 @@ function createMessageReader(
 
     processing = true;
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- while(true) is an intentional infinite loop
       while (true) {
         while (pending.length > 0) {
-          buffer = Buffer.concat([buffer, pending.shift()!]);
+          const next = pending.shift();
+          if (next) {
+            buffer = Buffer.concat([buffer, next]);
+          }
         }
 
         const separator = buffer.indexOf("\r\n\r\n");
@@ -42,7 +46,7 @@ function createMessageReader(
         }
 
         const headers = buffer.subarray(0, separator).toString("utf8");
-        const match = headers.match(/Content-Length:\s*(\d+)/i);
+        const match = /Content-Length:\s*(\d+)/i.exec(headers);
         if (!match) {
           throw new Error("Missing Content-Length header.");
         }
@@ -83,6 +87,7 @@ function createMessageReader(
 
 export async function runMcpServer(): Promise<void> {
   const runtime = await createRuntime();
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- dispatch is a standalone function, not a method
   const { dispatch } = createMcpDispatch(runtime, PROTOCOL_VERSION);
 
   const read = createMessageReader(async (message) => {
@@ -126,22 +131,23 @@ export async function runMcpServer(): Promise<void> {
     }
   });
 
-  process.stdout.on("error", () => {});
-  process.stdin.on("error", () => {});
+  process.stdout.on("error", () => { /* noop */ });
+  process.stdin.on("error", () => { /* noop */ });
 
   process.stdin.on("data", (chunk: Buffer) => {
-    read(chunk).catch((error: Error & { jsonRpcCode?: number; stack?: string }) => {
-      if (error.jsonRpcCode === -32700) {
+    read(chunk).catch((error: unknown) => {
+      const err = error as Error & { jsonRpcCode?: number; stack?: string };
+      if (err.jsonRpcCode === -32700) {
         process.stdout.write(
           encodeMessage({
             jsonrpc: "2.0",
             id: null,
-            error: createJsonRpcError(-32700, error.message),
+            error: createJsonRpcError(-32700, err.message),
           }),
         );
         return;
       }
-      process.stderr.write(`${error.stack ?? error.message}\n`);
+      process.stderr.write(`${err.stack ?? err.message}\n`);
     });
   });
 }

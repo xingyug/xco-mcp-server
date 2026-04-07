@@ -25,8 +25,8 @@ interface JsonRpcBody {
     protocolVersion?: string;
     serverInfo?: { name: string };
     capabilities?: { tools?: unknown };
-    tools?: Array<{ name: string }>;
-    content?: Array<{ type: string; text: string }>;
+    tools?: { name: string }[];
+    content?: { type: string; text: string }[];
   };
   error?: { code: number; message: string };
 }
@@ -44,10 +44,10 @@ function createMockRuntime(): XcoRuntime {
         },
       ];
     },
-    async callToolForMcp(name: string, args: Record<string, unknown>) {
-      return {
+    callToolForMcp(name: string, args: Record<string, unknown>) {
+      return Promise.resolve({
         content: [{ type: "text", text: JSON.stringify({ tool: name, args }) }],
-      };
+      });
     },
   } as unknown as XcoRuntime;
 }
@@ -58,9 +58,9 @@ function startServer(): Promise<TestContext> {
   const runtime = createMockRuntime();
   const handleMcp = createMcpHttpHandler(runtime);
   const server = http.createServer((req, res) => {
-    handleMcp(req, res).catch((err: Error) => {
+    handleMcp(req, res).catch((err: unknown) => {
       res.writeHead(500);
-      res.end(err.message);
+      res.end((err as Error).message);
     });
   });
   return new Promise<TestContext>((resolve) => {
@@ -107,7 +107,7 @@ async function initializeSession(baseUrl: string): Promise<{ sessionId: string; 
 
 /* ---- tests ---- */
 
-test("POST /mcp initialize returns protocol version and session ID", async () => {
+void test("POST /mcp initialize returns protocol version and session ID", async () => {
   const ctx = await startServer();
   try {
     const { sessionId, body } = await initializeSession(ctx.baseUrl);
@@ -122,7 +122,7 @@ test("POST /mcp initialize returns protocol version and session ID", async () =>
   }
 });
 
-test("POST /mcp tools/list requires valid session", async () => {
+void test("POST /mcp tools/list requires valid session", async () => {
   const ctx = await startServer();
   try {
     // Without session → 400
@@ -151,13 +151,13 @@ test("POST /mcp tools/list requires valid session", async () => {
     assert.equal(res2.status, 200);
     const body2 = (await res2.json()) as JsonRpcBody;
     assert.ok(Array.isArray(body2.result!.tools));
-    assert.equal(body2.result!.tools![0].name, "test_tool");
+    assert.equal(body2.result!.tools[0].name, "test_tool");
   } finally {
     ctx.close();
   }
 });
 
-test("POST /mcp tools/call dispatches to runtime", async () => {
+void test("POST /mcp tools/call dispatches to runtime", async () => {
   const ctx = await startServer();
   try {
     const { sessionId } = await initializeSession(ctx.baseUrl);
@@ -182,7 +182,7 @@ test("POST /mcp tools/call dispatches to runtime", async () => {
   }
 });
 
-test("POST /mcp ping returns empty result", async () => {
+void test("POST /mcp ping returns empty result", async () => {
   const ctx = await startServer();
   try {
     const { sessionId } = await initializeSession(ctx.baseUrl);
@@ -204,7 +204,7 @@ test("POST /mcp ping returns empty result", async () => {
   }
 });
 
-test("POST /mcp notification returns 202", async () => {
+void test("POST /mcp notification returns 202", async () => {
   const ctx = await startServer();
   try {
     const { sessionId } = await initializeSession(ctx.baseUrl);
@@ -222,7 +222,7 @@ test("POST /mcp notification returns 202", async () => {
   }
 });
 
-test("POST /mcp invalid JSON returns parse error", async () => {
+void test("POST /mcp invalid JSON returns parse error", async () => {
   const ctx = await startServer();
   try {
     const res = await fetch(`${ctx.baseUrl}/mcp`, {
@@ -238,7 +238,7 @@ test("POST /mcp invalid JSON returns parse error", async () => {
   }
 });
 
-test("POST /mcp unknown method returns -32601", async () => {
+void test("POST /mcp unknown method returns -32601", async () => {
   const ctx = await startServer();
   try {
     const { sessionId } = await initializeSession(ctx.baseUrl);
@@ -260,7 +260,7 @@ test("POST /mcp unknown method returns -32601", async () => {
   }
 });
 
-test("POST /mcp batch with mixed requests and notifications", async () => {
+void test("POST /mcp batch with mixed requests and notifications", async () => {
   const ctx = await startServer();
   try {
     const { sessionId } = await initializeSession(ctx.baseUrl);
@@ -284,7 +284,7 @@ test("POST /mcp batch with mixed requests and notifications", async () => {
   }
 });
 
-test("POST /mcp empty batch returns 400", async () => {
+void test("POST /mcp empty batch returns 400", async () => {
   const ctx = await startServer();
   try {
     const { sessionId } = await initializeSession(ctx.baseUrl);
@@ -297,7 +297,7 @@ test("POST /mcp empty batch returns 400", async () => {
   }
 });
 
-test("DELETE /mcp terminates session", async () => {
+void test("DELETE /mcp terminates session", async () => {
   const ctx = await startServer();
   try {
     const { sessionId } = await initializeSession(ctx.baseUrl);
@@ -326,7 +326,7 @@ test("DELETE /mcp terminates session", async () => {
   }
 });
 
-test("DELETE /mcp without session returns 400", async () => {
+void test("DELETE /mcp without session returns 400", async () => {
   const ctx = await startServer();
   try {
     const res = await fetch(`${ctx.baseUrl}/mcp`, { method: "DELETE" });
@@ -336,7 +336,7 @@ test("DELETE /mcp without session returns 400", async () => {
   }
 });
 
-test("GET /mcp without session returns 400", async () => {
+void test("GET /mcp without session returns 400", async () => {
   const ctx = await startServer();
   try {
     const res = await fetch(`${ctx.baseUrl}/mcp`, { method: "GET" });
@@ -346,7 +346,7 @@ test("GET /mcp without session returns 400", async () => {
   }
 });
 
-test("GET /mcp with session returns 405 (no server-initiated messages)", async () => {
+void test("GET /mcp with session returns 405 (no server-initiated messages)", async () => {
   const ctx = await startServer();
   try {
     const { sessionId } = await initializeSession(ctx.baseUrl);
@@ -360,7 +360,7 @@ test("GET /mcp with session returns 405 (no server-initiated messages)", async (
   }
 });
 
-test("OPTIONS /mcp returns CORS headers", async () => {
+void test("OPTIONS /mcp returns CORS headers", async () => {
   const ctx = await startServer();
   try {
     const res = await fetch(`${ctx.baseUrl}/mcp`, { method: "OPTIONS" });
@@ -376,7 +376,7 @@ test("OPTIONS /mcp returns CORS headers", async () => {
   }
 });
 
-test("PUT /mcp returns 405", async () => {
+void test("PUT /mcp returns 405", async () => {
   const ctx = await startServer();
   try {
     const res = await fetch(`${ctx.baseUrl}/mcp`, { method: "PUT" });
@@ -386,7 +386,7 @@ test("PUT /mcp returns 405", async () => {
   }
 });
 
-test("full session lifecycle: initialize → tools/list → tools/call → delete", async () => {
+void test("full session lifecycle: initialize → tools/list → tools/call → delete", async () => {
   const ctx = await startServer();
   try {
     // 1. Initialize
@@ -444,9 +444,10 @@ test("full session lifecycle: initialize → tools/list → tools/call → delet
   }
 });
 
-test("shared dispatch: mcp-dispatch module works with mock runtime", async () => {
+void test("shared dispatch: mcp-dispatch module works with mock runtime", async () => {
   const { createMcpDispatch } = await import("../src/lib/mcp-dispatch.js");
   const runtime = createMockRuntime();
+  // eslint-disable-next-line @typescript-eslint/unbound-method
   const { dispatch } = createMcpDispatch(runtime, "test-version");
 
   const initResult = (await dispatch("initialize", {})) as Record<string, unknown>;
@@ -456,7 +457,7 @@ test("shared dispatch: mcp-dispatch module works with mock runtime", async () =>
   assert.deepEqual(pingResult, {});
 
   const toolsResult = (await dispatch("tools/list", {})) as Record<string, unknown>;
-  assert.equal((toolsResult.tools as Array<{ name: string }>)[0].name, "test_tool");
+  assert.equal((toolsResult.tools as { name: string }[])[0].name, "test_tool");
 
   await assert.rejects(
     () => dispatch("unknown/method", {}),

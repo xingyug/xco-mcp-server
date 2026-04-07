@@ -7,7 +7,7 @@ import path from "node:path";
 import type { XcoConfig } from "../src/types.js";
 import { loadConfig, saveConfig, resolveToken, resolveUsername, resolvePassword, resolveCredentials } from "../src/lib/config.js";
 
-test("saveConfig does not persist plaintext bastion passwords", async () => {
+void test("saveConfig does not persist plaintext bastion passwords", async () => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "xco-config-test-"));
   const configPath = path.join(tempDir, "config.json");
 
@@ -27,7 +27,7 @@ test("saveConfig does not persist plaintext bastion passwords", async () => {
   assert.equal(persisted.bastionPasswordAuth, true);
 });
 
-test("loadConfig reads env variables and applies defaults", async () => {
+void test("loadConfig reads env variables and applies defaults", async () => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "xco-config-test-"));
   try {
     const config = await loadConfig({
@@ -49,7 +49,7 @@ test("loadConfig reads env variables and applies defaults", async () => {
   }
 });
 
-test("loadConfig merges file config with env overrides", async () => {
+void test("loadConfig merges file config with env overrides", async () => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "xco-config-test-"));
   const xcoHome = path.join(tempDir, ".xco");
   await fs.mkdir(xcoHome, { recursive: true });
@@ -76,7 +76,7 @@ test("loadConfig merges file config with env overrides", async () => {
   }
 });
 
-test("resolveToken returns override > config > env", () => {
+void test("resolveToken returns override > config > env", () => {
   const config = {
     token: "config-token",
     tokenEnv: "MY_TOKEN_ENV",
@@ -90,7 +90,7 @@ test("resolveToken returns override > config > env", () => {
   assert.equal(resolveToken({ token: null, tokenEnv: null } as XcoConfig), null);
 });
 
-test("resolveUsername returns override > config > env", () => {
+void test("resolveUsername returns override > config > env", () => {
   const config = {
     username: "config-user",
     usernameEnv: null,
@@ -100,7 +100,7 @@ test("resolveUsername returns override > config > env", () => {
   assert.equal(resolveUsername({ username: null, usernameEnv: null } as XcoConfig), null);
 });
 
-test("resolvePassword returns override > config > env", () => {
+void test("resolvePassword returns override > config > env", () => {
   const config = {
     password: "config-pass",
     passwordEnv: null,
@@ -110,7 +110,7 @@ test("resolvePassword returns override > config > env", () => {
   assert.equal(resolvePassword({ password: null, passwordEnv: null } as XcoConfig), null);
 });
 
-test("resolveCredentials combines username and password resolution", () => {
+void test("resolveCredentials combines username and password resolution", () => {
   const config = {
     username: "admin",
     usernameEnv: null,

@@ -22,19 +22,18 @@ import {
 const ANCHOR_REGEX = /<a\b[^>]*href=(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gim;
 
 function stripHtml(fragment: string): string {
-  return summarizeText(String(fragment ?? "").replace(/<[^>]+>/g, " "));
+  return summarizeText(fragment.replace(/<[^>]+>/g, " "));
 }
 
 function normalizeSpecSource(value: unknown): string {
-  const normalized = String(value ?? "official")
-    .trim()
-    .toLowerCase();
+  const raw = typeof value === "string" ? value : "official";
+  const normalized = raw.trim().toLowerCase();
   if (["official", "instance", "auto"].includes(normalized)) {
     return normalized;
   }
 
   throw new Error(
-    `Unsupported spec source "${value}". Expected official, instance, or auto.`,
+    `Unsupported spec source "${raw}". Expected official, instance, or auto.`,
   );
 }
 
@@ -61,9 +60,8 @@ function isOpenApiSpec(value: unknown): value is OpenApiDocument {
 }
 
 function parseSemver(value: unknown): { major: number; minor: number; patch: number } | null {
-  const match = String(value ?? "")
-    .trim()
-    .match(/^(\d+)\.(\d+)\.(\d+)$/);
+  const raw = typeof value === "string" || typeof value === "number" ? String(value) : "";
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(raw.trim());
   if (!match) {
     return null;
   }
@@ -78,7 +76,7 @@ function parseSemver(value: unknown): { major: number; minor: number; patch: num
 export function getOfficialDocsVersion(version: string): string {
   const parsed = parseSemver(version);
   if (!parsed || parsed.patch === 0) {
-    return String(version);
+    return version;
   }
 
   return `${parsed.major}.${parsed.minor}.0`;
@@ -128,7 +126,7 @@ export function extractServiceReferences(
     }
 
     const innerHtml = match[3];
-    const headerMatch = innerHtml.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/im);
+    const headerMatch = /<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/im.exec(innerHtml);
     const title = stripHtml(headerMatch?.[1] ?? innerHtml);
     if (!/api reference/i.test(title)) {
       continue;
@@ -144,7 +142,7 @@ export function extractServiceReferences(
     });
   }
 
-  return uniqueBy(references, (item) => item.fetchUrl!);
+  return uniqueBy(references, (item) => item.fetchUrl ?? item.docUrl);
 }
 
 export function extractSpecFromRedocHtml(docHtml: string): OpenApiDocument {
@@ -156,7 +154,7 @@ export function extractSpecFromRedocHtml(docHtml: string): OpenApiDocument {
 
   const afterStart = start + marker.length;
   const trailingHtml = docHtml.slice(afterStart);
-  const endMatch = trailingHtml.match(/;\s*var container\b/);
+  const endMatch = /;\s*var container\b/.exec(trailingHtml);
   if (!endMatch) {
     throw new Error("Unable to find the end of the embedded Redoc state.");
   }
@@ -164,15 +162,16 @@ export function extractSpecFromRedocHtml(docHtml: string): OpenApiDocument {
   const stateJson = trailingHtml.slice(0, endMatch.index).trim();
   let state: Record<string, unknown>;
   try {
-    state = JSON.parse(stateJson);
+    state = JSON.parse(stateJson) as Record<string, unknown>;
   } catch (error) {
     throw new Error(
       `Failed to parse embedded Redoc state JSON: ${(error as Error).message}`,
+      { cause: error },
     );
   }
-  const spec = (state?.spec as Record<string, unknown>)?.data as OpenApiDocument | undefined;
+  const spec = (state.spec as Record<string, unknown> | undefined)?.data as OpenApiDocument | undefined;
 
-  if (!spec?.openapi || !spec?.paths) {
+  if (!spec?.openapi || !spec.paths) {
     throw new Error("Embedded Redoc state does not contain an OpenAPI spec.");
   }
 
@@ -180,7 +179,7 @@ export function extractSpecFromRedocHtml(docHtml: string): OpenApiDocument {
 }
 
 export function extractSpecFromDocument(documentText: string): OpenApiDocument {
-  const directSpec = tryParseJson(String(documentText).trim());
+  const directSpec = tryParseJson(documentText.trim());
   if (isOpenApiSpec(directSpec)) {
     return directSpec;
   }
@@ -206,12 +205,12 @@ interface DiscoverResult {
 
 async function discoverSource(version: string, options: DiscoverSourceOptions = {}): Promise<DiscoverResult | null> {
   const specSource = normalizeSpecSource(options.specSource);
-  const candidates: Array<{
+  const candidates: {
     kind: string;
     docsVersion?: string;
     indexUrl: string;
     publicUrl: string;
-  }> = [];
+  }[] = [];
 
   if (specSource === "instance" || specSource === "auto") {
     if (options.requestDocsUrl) {
@@ -286,7 +285,7 @@ export async function downloadVersionBundle(version: string, options: DownloadOp
   const versionDir = path.join(xcoHome, "versions", version);
   const servicesDir = path.join(versionDir, "services");
   const overwrite = Boolean(options.overwrite);
-  const onEvent: EventListener = options.onEvent ?? (() => {});
+  const onEvent: EventListener = options.onEvent ?? ((() => { /* no-op */ }) as EventListener);
   const requestedSpecSource = normalizeSpecSource(options.specSource);
 
   onEvent({
@@ -318,12 +317,12 @@ export async function downloadVersionBundle(version: string, options: DownloadOp
           serviceSlug: reference.serviceSlug,
           docUrl: reference.docUrl,
           specFile: path.relative(versionDir, specFilePath),
-          specTitle: existing?.info?.title ?? null,
-          specVersion: existing?.info?.version ?? null,
-          operationCount: Object.values(existing?.paths ?? {}).reduce(
+          specTitle: existing.info?.title ?? null,
+          specVersion: existing.info?.version ?? null,
+          operationCount: Object.values(existing.paths ?? {}).reduce(
             (count: number, pathItem) =>
               count +
-              Object.keys(pathItem ?? {}).filter((k) => HTTP_METHODS.has(k))
+              Object.keys(pathItem).filter((k) => HTTP_METHODS.has(k))
                 .length,
             0,
           ),
@@ -368,7 +367,7 @@ export async function downloadVersionBundle(version: string, options: DownloadOp
       operationCount: Object.values(spec.paths ?? {}).reduce(
         (count: number, pathItem) =>
           count +
-          Object.keys(pathItem ?? {}).filter((k) => HTTP_METHODS.has(k)).length,
+          Object.keys(pathItem).filter((k) => HTTP_METHODS.has(k)).length,
         0,
       ),
       reused: false,

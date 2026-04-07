@@ -15,7 +15,7 @@ function makeJwt(payload: Record<string, unknown>): string {
   return `${encode({ alg: "HS256", typ: "JWT" })}.${encode(payload)}.signature`;
 }
 
-test("decodeJwtPayload parses JWT payload and expiry", () => {
+void test("decodeJwtPayload parses JWT payload and expiry", () => {
   const token = makeJwt({ sub: "admin", exp: 4102444800 });
   assert.deepEqual(decodeJwtPayload(token), {
     sub: "admin",
@@ -24,7 +24,7 @@ test("decodeJwtPayload parses JWT payload and expiry", () => {
   assert.equal(getTokenExpiresAt(token), "2100-01-01T00:00:00.000Z");
 });
 
-test("maskToken and buildSessionKey produce stable summaries", () => {
+void test("maskToken and buildSessionKey produce stable summaries", () => {
   assert.equal(maskToken("abcdefghijklmnopqrstuvwxyz"), "abcdefgh...stuvwxyz");
   assert.equal(maskToken("abcdefghij"), "abcd...ghij");
   assert.equal(maskToken("abcdefgh"), "***");
@@ -44,7 +44,7 @@ test("maskToken and buildSessionKey produce stable summaries", () => {
   );
 });
 
-test("isExpired respects expiry timestamps", () => {
+void test("isExpired respects expiry timestamps", () => {
   assert.equal(isExpired(new Date(Date.now() + 60_000).toISOString()), false);
   assert.equal(isExpired(new Date(Date.now() - 60_000).toISOString()), true);
 });

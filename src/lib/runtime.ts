@@ -488,8 +488,8 @@ function extractErrorMessage(body: unknown, fallback = "Request failed."): strin
   }
 
   if (Array.isArray(record.errors) && record.errors.length > 0) {
-    return (record.errors as Array<Record<string, unknown>>)
-      .map((item) => (item?.message as string) ?? JSON.stringify(item))
+    return (record.errors as Record<string, unknown>[])
+      .map((item) => (item.message as string | undefined) ?? JSON.stringify(item))
       .join("; ");
   }
 
@@ -532,7 +532,7 @@ function buildAuthConfigPatch(
 }
 
 function isImplicitAuthEndpoint(servicePrefix = "", routePath = ""): boolean {
-  const fullPath = `${servicePrefix ?? ""}${routePath ?? ""}`;
+  const fullPath = `${servicePrefix}${routePath}`;
   return /\/auth\/token\/(access-token|refresh|client-access-token|system-access-token|extended-system-access-token)$/.test(
     fullPath,
   );
@@ -540,7 +540,7 @@ function isImplicitAuthEndpoint(servicePrefix = "", routePath = ""): boolean {
 
 async function readInstalledVersions(xcoHome: string): Promise<InstalledVersion[]> {
   const versionsDir = path.join(xcoHome, "versions");
-  let entries: import("node:fs").Dirent[] = [];
+  let entries: import("node:fs").Dirent[];
   try {
     entries = await fs.readdir(versionsDir, { withFileTypes: true });
   } catch {
@@ -561,10 +561,10 @@ async function readInstalledVersions(xcoHome: string): Promise<InstalledVersion[
     try {
       const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8")) as Record<string, unknown>;
       versions.push({
-        version: (manifest.version as string) ?? entry.name,
+        version: (manifest.version as string | undefined) ?? entry.name,
         manifestPath,
         serviceCount: (manifest.services as unknown[] | undefined)?.length ?? 0,
-        downloadedAt: (manifest.downloadedAt as string) ?? null,
+        downloadedAt: (manifest.downloadedAt as string | undefined) ?? null,
       });
     } catch {
       // Ignore malformed cache entries.
@@ -632,7 +632,7 @@ export class XcoRuntime {
       stopSshTunnel(tunnel, "SIGTERM");
       tunnel.child.stderr?.destroy();
       tunnel.child.unref();
-      tunnel.cleanup?.();
+      tunnel.cleanup();
     }
     this.tunnels.clear();
     this.sessionCache.clear();
@@ -686,7 +686,7 @@ export class XcoRuntime {
       tokenConfigured: Boolean(resolveToken(this.config)),
       readonly: this.config.readonly,
       bastionJumps: getTunnelSettings(this.config).jumps,
-      bastionPasswordAuth: Boolean(this.config.bastionPasswordAuth),
+      bastionPasswordAuth: this.config.bastionPasswordAuth,
       bastionPasswordEnvConfigured: Boolean(this.config.bastionPasswordEnv),
       bastionPasswordsEnvConfigured: Boolean(this.config.bastionPasswordsEnv),
       tlsRejectUnauthorized: this.config.tlsRejectUnauthorized,
@@ -703,7 +703,7 @@ export class XcoRuntime {
         operationCount: Object.values(entry.spec.paths ?? {}).reduce(
           (count, pathItem) =>
             count +
-            Object.keys(pathItem ?? {}).filter((k) => HTTP_METHODS.has(k))
+            Object.keys(pathItem).filter((k) => HTTP_METHODS.has(k))
               .length,
           0,
         ),
@@ -723,7 +723,7 @@ export class XcoRuntime {
       throw new Error("setupVersion requires a version.");
     }
 
-    const specSource = (input.specSource ?? this.config.specSource ?? "official") as string;
+    const specSource = (input.specSource ?? this.config.specSource) as string;
     const docsUrl =
       specSource === "instance" || specSource === "auto"
         ? this.resolveDocsUrl(input as Record<string, string>)
@@ -862,15 +862,16 @@ export class XcoRuntime {
     }
 
     // Serialize concurrent tunnel startups for the same key
-    if (this.pendingTunnels.has(tunnelKey)) {
-      const tunnel = await this.pendingTunnels.get(tunnelKey)!;
+    const pendingPromise = this.pendingTunnels.get(tunnelKey);
+    if (pendingPromise) {
+      const tunnel = await pendingPromise;
       const url = new URL(baseUrl);
-      url.hostname = tunnel!.bindHost;
-      url.port = String(tunnel!.localPort);
+      url.hostname = tunnel.bindHost;
+      url.port = String(tunnel.localPort);
       return url.toString();
     }
 
-    const onEvent: EventListener = options.onEvent ?? (() => {});
+    const onEvent: EventListener = options.onEvent ?? (() => { /* noop */ });
     onEvent({
       level: "info",
       phase: "ssh-tunnel",
@@ -932,7 +933,7 @@ export class XcoRuntime {
 
     const method =
       typeof operationOrMethod === "string"
-        ? String(operationOrMethod).toUpperCase()
+        ? operationOrMethod.toUpperCase()
         : operationOrMethod.method;
     if (READONLY_METHODS.has(method)) {
       return;
@@ -1039,7 +1040,7 @@ export class XcoRuntime {
       );
     }
 
-    const onEvent: EventListener = options.onEvent ?? (() => {});
+    const onEvent: EventListener = options.onEvent ?? (() => { /* noop */ });
     onEvent({
       level: "info",
       phase: "auth-login",
@@ -1067,7 +1068,7 @@ export class XcoRuntime {
       );
     }
 
-    const accessToken = (response.body as Record<string, unknown>)?.["access-token"] as string | undefined;
+    const accessToken = (response.body as Record<string, unknown>)["access-token"] as string | undefined;
     if (!accessToken) {
       throw new Error("XCO login succeeded but no access-token was returned.");
     }
@@ -1077,11 +1078,11 @@ export class XcoRuntime {
       version: this.config.activeVersion,
       baseUrl: logicalBaseUrl,
       username: credentials.username,
-      tokenType: (body?.["token-type"] as string) ?? "Bearer",
+      tokenType: (body["token-type"] as string | undefined) ?? "Bearer",
       accessToken,
-      refreshToken: (body?.["refresh-token"] as string) ?? null,
+      refreshToken: (body["refresh-token"] as string | undefined) ?? null,
       accessTokenExpiresAt: getTokenExpiresAt(accessToken),
-      message: (body?.message as string) ?? null,
+      message: (body.message as string | undefined) ?? null,
       updatedAt: new Date().toISOString(),
     });
   }
@@ -1098,7 +1099,7 @@ export class XcoRuntime {
       throw new Error("No cached refresh token is available.");
     }
 
-    const onEvent: EventListener = options.onEvent ?? (() => {});
+    const onEvent: EventListener = options.onEvent ?? (() => { /* noop */ });
     onEvent({
       level: "info",
       phase: "auth-refresh",
@@ -1126,7 +1127,7 @@ export class XcoRuntime {
       );
     }
 
-    const accessToken = (response.body as Record<string, unknown>)?.["access-token"] as string | undefined;
+    const accessToken = (response.body as Record<string, unknown>)["access-token"] as string | undefined;
     if (!accessToken) {
       throw new Error(
         "XCO refresh succeeded but no access-token was returned.",
@@ -1136,12 +1137,12 @@ export class XcoRuntime {
     const body = response.body as Record<string, unknown>;
     return await this.saveSession({
       ...session,
-      tokenType: (body?.["token-type"] as string) ?? session.tokenType ?? "Bearer",
+      tokenType: (body["token-type"] as string | undefined) ?? session.tokenType,
       accessToken,
       refreshToken:
-        (body?.["refresh-token"] as string) ?? session.refreshToken ?? null,
+        (body["refresh-token"] as string | undefined) ?? session.refreshToken,
       accessTokenExpiresAt: getTokenExpiresAt(accessToken),
-      message: (body?.message as string) ?? session.message ?? null,
+      message: (body.message as string | undefined) ?? session.message,
       updatedAt: new Date().toISOString(),
     });
   }
@@ -1155,7 +1156,7 @@ export class XcoRuntime {
     }
 
     const credentials = resolveCredentials(this.config, input);
-    let session = await this.getSessionFor(baseUrl, credentials.username);
+    const session = await this.getSessionFor(baseUrl, credentials.username);
 
     if (
       !options.forceRenew &&
@@ -1204,18 +1205,18 @@ export class XcoRuntime {
 
     this.enforceReadonly(entry.operation);
 
-    let token: string | null = null;
+    let token: string | null;
     let retryable = false;
     if (entry.operation.requiresAuth) {
-      const authState = await this.getAuthHeaderToken(input ?? {}, options);
+      const authState = await this.getAuthHeaderToken(input, options);
       token = authState.token;
       retryable = authState.retryable;
     } else {
-      token = resolveToken(this.config, input ?? {});
+      token = resolveToken(this.config, input);
     }
 
     const requestBaseUrl = await this.resolveRequestBaseUrl(
-      input ?? {},
+      input,
       options,
     );
     let response = await executeOperation(
@@ -1230,7 +1231,7 @@ export class XcoRuntime {
     );
 
     if (entry.operation.requiresAuth && response.status === 401 && retryable) {
-      const session = await this.ensureAuthSession(input ?? {}, {
+      const session = await this.ensureAuthSession(input, {
         ...options,
         forceRenew: true,
       });
@@ -1252,25 +1253,25 @@ export class XcoRuntime {
 
   async callMetaTool(name: string, input: ToolInput, options: RuntimeCallOptions = {}): Promise<unknown> {
     if (name === "xco_setup_version") {
-      return await this.setupVersion(input ?? {}, options);
+      return await this.setupVersion(input, options);
     }
 
     if (name === "xco_use_version") {
-      return await this.useVersion(input ?? {});
+      return await this.useVersion(input);
     }
 
     if (name === "xco_auth_login") {
       this.config = {
         ...this.config,
-        baseUrl: (input?.baseUrl as string) ?? this.config.baseUrl,
-        username: (input?.username as string) ?? this.config.username,
-        usernameEnv: (input?.usernameEnv as string) ?? this.config.usernameEnv,
-        password: (input?.password as string) ?? this.config.password,
-        passwordEnv: (input?.passwordEnv as string) ?? this.config.passwordEnv,
+        baseUrl: (input.baseUrl as string | undefined) ?? this.config.baseUrl,
+        username: (input.username as string | undefined) ?? this.config.username,
+        usernameEnv: (input.usernameEnv as string | undefined) ?? this.config.usernameEnv,
+        password: (input.password as string | undefined) ?? this.config.password,
+        passwordEnv: (input.passwordEnv as string | undefined) ?? this.config.passwordEnv,
       };
 
-      const session = await this.loginWithPassword(input ?? {}, options);
-      if (input?.persistConfig) {
+      const session = await this.loginWithPassword(input, options);
+      if (input.persistConfig) {
         this.config = await saveConfig(
           this.config,
           buildAuthConfigPatch(input, this.config),
@@ -1279,24 +1280,24 @@ export class XcoRuntime {
 
       return {
         activeVersion: this.config.activeVersion,
-        auth: await this.getAuthStatus(input ?? {}),
+        auth: await this.getAuthStatus(input),
         session: summarizeSession(session),
       };
     }
 
     if (name === "xco_auth_status") {
-      return await this.getAuthStatus(input ?? {});
+      return await this.getAuthStatus(input);
     }
 
     if (name === "xco_auth_logout") {
-      return await this.clearSession(input ?? {});
+      return await this.clearSession(input);
     }
 
     if (name === "xco_list_versions") {
       return {
         activeVersion: this.config.activeVersion,
         installed: await readInstalledVersions(this.config.xcoHome),
-        remote: input?.remote ? await this.discoverRemoteVersions() : undefined,
+        remote: input.remote ? await this.discoverRemoteVersions() : undefined,
       };
     }
 
@@ -1305,34 +1306,34 @@ export class XcoRuntime {
     }
 
     if (name === "xco_raw_request") {
-      const fullPath = `${(input?.servicePrefix as string) ?? ""}${(input?.path as string) ?? ""}`;
-      const authenticate =
-        input?.authenticate ?? !isImplicitAuthEndpoint("", fullPath);
-      this.enforceReadonly((input?.method as string) ?? "GET", fullPath);
-      let token: string | null = resolveToken(this.config, input ?? {});
+      const fullPath = `${(input.servicePrefix as string | undefined) ?? ""}${(input.path as string | undefined) ?? ""}`;
+      const authenticate: boolean =
+        (input.authenticate as boolean | undefined) ?? !isImplicitAuthEndpoint("", fullPath);
+      this.enforceReadonly((input.method as string | undefined) ?? "GET", fullPath);
+      let token: string | null = resolveToken(this.config, input);
       let retryable = false;
 
       if (!token && authenticate) {
-        const authState = await this.getAuthHeaderToken(input ?? {}, options);
+        const authState = await this.getAuthHeaderToken(input, options);
         token = authState.token;
         retryable = authState.retryable;
       }
 
       const requestBaseUrl = await this.resolveRequestBaseUrl(
-        input ?? {},
+        input,
         options,
       );
       let response = await executeRawRequest(this.config, token, {
-        ...(input ?? {}),
+        ...input,
         baseUrl: requestBaseUrl,
       });
       if (authenticate && response.status === 401 && retryable) {
-        const session = await this.ensureAuthSession(input ?? {}, {
+        const session = await this.ensureAuthSession(input, {
           ...options,
           forceRenew: true,
         });
         response = await executeRawRequest(this.config, session.accessToken, {
-          ...(input ?? {}),
+          ...input,
           baseUrl: requestBaseUrl,
         });
       }
@@ -1344,7 +1345,7 @@ export class XcoRuntime {
   }
 
   async callTool(name: string, input: ToolInput = {}, options: RuntimeCallOptions = {}): Promise<unknown> {
-    const onEvent: EventListener = options.onEvent ?? (() => {});
+    const onEvent: EventListener = options.onEvent ?? (() => { /* noop */ });
     onEvent({
       level: "info",
       phase: "call-start",
@@ -1398,13 +1399,9 @@ export async function createRuntime(options: LoadConfigOptions = {}): Promise<Xc
   const config = await loadConfig(options);
 
   // Apply TLS certificate validation setting
-  if (
-    config.tlsRejectUnauthorized !== null &&
-    config.tlsRejectUnauthorized !== undefined
-  ) {
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = String(
-      config.tlsRejectUnauthorized,
-    );
+  if (config.tlsRejectUnauthorized !== null) {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED =
+      config.tlsRejectUnauthorized;
   }
 
   const runtime = new XcoRuntime(config, options);

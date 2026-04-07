@@ -90,12 +90,11 @@ async function writeSessionStore(sessionPath: string, store: SessionStore): Prom
 
 export async function readSession(sessionPath: string, key: string): Promise<AuthSession | null> {
   const store = await readSessionStore(sessionPath);
-  return store.sessions?.[key] ?? null;
+  return store.sessions[key] ?? null;
 }
 
 export async function writeSession(sessionPath: string, key: string, session: AuthSession): Promise<AuthSession> {
   const store = await readSessionStore(sessionPath);
-  store.sessions ??= {};
   store.sessions[key] = session;
   await writeSessionStore(sessionPath, store);
   return session;
@@ -103,7 +102,8 @@ export async function writeSession(sessionPath: string, key: string, session: Au
 
 export async function deleteSession(sessionPath: string, key: string): Promise<void> {
   const store = await readSessionStore(sessionPath);
-  if (store.sessions?.[key]) {
+  if (key in store.sessions) {
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
     delete store.sessions[key];
     await writeSessionStore(sessionPath, store);
   }
@@ -118,15 +118,15 @@ export function summarizeSession(session: AuthSession | null): SessionSummary {
 
   return {
     cached: true,
-    username: session.username ?? null,
-    baseUrl: session.baseUrl ?? null,
+    username: session.username,
+    baseUrl: session.baseUrl,
     version: session.version ?? null,
-    tokenType: session.tokenType ?? null,
+    tokenType: session.tokenType,
     hasAccessToken: Boolean(session.accessToken),
     hasRefreshToken: Boolean(session.refreshToken),
     accessToken: maskToken(session.accessToken),
     refreshToken: maskToken(session.refreshToken),
     accessTokenExpiresAt: session.accessTokenExpiresAt ?? null,
-    updatedAt: session.updatedAt ?? null,
+    updatedAt: session.updatedAt,
   };
 }

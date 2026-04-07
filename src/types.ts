@@ -260,7 +260,7 @@ export interface OpenApiDocument {
     version?: string;
     [key: string]: unknown;
   };
-  servers?: Array<{ url?: string; [key: string]: unknown }>;
+  servers?: { url?: string; [key: string]: unknown }[];
   paths?: Record<string, PathItem>;
   security?: SecurityRequirement[];
   [key: string]: unknown;
@@ -399,7 +399,7 @@ export interface McpSession {
 export interface ToolResult {
   isError: boolean;
   structuredContent: unknown;
-  content: Array<{ type: string; text: string }>;
+  content: { type: string; text: string }[];
 }
 
 export interface AuthHeaderToken {

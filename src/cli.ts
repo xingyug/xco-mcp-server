@@ -5,7 +5,7 @@ import { parseJsonText } from "./lib/json.js";
 
 interface ParsedArgs {
   positional: string[];
-  flags: Record<string, string | boolean>;
+  flags: Partial<Record<string, string | boolean>>;
 }
 
 function parseFlags(argv: string[]): ParsedArgs {
@@ -73,7 +73,7 @@ function usage(): string {
 `;
 }
 
-function sharedConnectionFlags(flags: Record<string, string | boolean>): Record<string, unknown> {
+function sharedConnectionFlags(flags: Partial<Record<string, string | boolean>>): Record<string, unknown> {
   return {
     specSource: flags["spec-source"],
     docsUrl: flags["docs-url"],
@@ -97,11 +97,11 @@ function sharedConnectionFlags(flags: Record<string, string | boolean>): Record<
     bastionTargetPort:
       flags["bastion-target-port"] === undefined
         ? undefined
-        : Number.parseInt(String(flags["bastion-target-port"]), 10),
+        : Number.parseInt(flags["bastion-target-port"] as string, 10),
     bastionLocalPort:
       flags["bastion-local-port"] === undefined
         ? undefined
-        : Number.parseInt(String(flags["bastion-local-port"]), 10),
+        : Number.parseInt(flags["bastion-local-port"] as string, 10),
     bastionBindHost: flags["bastion-bind-host"],
     bastionStrictHostKeyChecking:
       flags["bastion-strict-host-key-checking"] === undefined
@@ -217,12 +217,12 @@ async function main(): Promise<void> {
             ? undefined
             : parseBoolean(flags.authenticate),
         query: flags.query
-          ? parseJsonText(String(flags.query), "query JSON")
+          ? parseJsonText(flags.query as string, "query JSON")
           : undefined,
         headers: flags.headers
-          ? parseJsonText(String(flags.headers), "headers JSON")
+          ? parseJsonText(flags.headers as string, "headers JSON")
           : undefined,
-        body: flags.body ? parseJsonText(String(flags.body), "body JSON") : undefined,
+        body: flags.body ? parseJsonText(flags.body as string, "body JSON") : undefined,
         ...sharedConnectionFlags(flags),
       };
       const result = await runtime.callMetaTool("xco_raw_request", input);

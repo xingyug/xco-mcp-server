@@ -13,6 +13,7 @@
     "setup:3.7.0": "node ./dist/src/cli.js setup --version 3.7.0",
     "start": "node ./dist/src/server.js",
     "start:http": "node ./dist/src/http-server.js",
+    "lint": "eslint src/ test/",
     "test": "npm run build && node --test 'dist/test/*.test.js'",
     "test:unit": "npm run build && node --test 'dist/test/*.test.js'"
   },
@@ -45,7 +46,10 @@
   ],
   "license": "Apache-2.0",
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^25.5.2",
-    "typescript": "^6.0.2"
+    "eslint": "^10.2.0",
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.58.0"
   }
 }

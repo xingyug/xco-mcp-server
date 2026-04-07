@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { createRuntime } from "../src/lib/runtime.js";
 
-test("runtime loads manual specs and generates tools", async () => {
+void test("runtime loads manual specs and generates tools", async () => {
   const runtime = await createRuntime({
     cwd: process.cwd(),
     env: {
@@ -32,7 +32,7 @@ test("runtime loads manual specs and generates tools", async () => {
   assert.ok(tools.find((tool) => tool.name === "tenant_service__gettenants"));
 });
 
-test("runtime readonly mode only exposes read operations and blocks writes", async () => {
+void test("runtime readonly mode only exposes read operations and blocks writes", async () => {
   const runtime = await createRuntime({
     cwd: process.cwd(),
     env: {

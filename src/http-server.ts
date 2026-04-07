@@ -126,10 +126,10 @@ async function main(): Promise<void> {
         }
       }, 15000);
 
-      const unsubscribe = eventBus.subscribe((event) => {
+      const unsubscribe = eventBus.subscribe((event: Record<string, unknown>) => {
         try {
           if (!res.writableEnded) {
-            res.write(`event: ${event.type}\n`);
+            res.write(`event: ${String(event.type)}\n`);
             res.write(`data: ${JSON.stringify(event)}\n\n`);
           }
         } catch {
@@ -184,7 +184,7 @@ async function main(): Promise<void> {
           eventBus.emit({
             jobId,
             ...event,
-            type: (event as Record<string, unknown>).phase as string ?? "info",
+            type: (event.phase as string | undefined) ?? "info",
             at: new Date().toISOString(),
           });
 
@@ -209,7 +209,7 @@ async function main(): Promise<void> {
         } else if (url.pathname === "/v1/call") {
           result = await runtime.callTool(
             input.name as string,
-            (input.arguments as Record<string, unknown>) ?? {},
+            (input.arguments ?? {}) as Record<string, unknown>,
             { onEvent: emit },
           );
         } else {

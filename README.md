@@ -358,8 +358,14 @@ The script leaves JSON artifacts and recent mock logs in a temp directory and pr
 Run:
 
 ```bash
+# Lint
+npm run lint
+
+# Build + unit tests
 npm test
 ```
+
+CI enforces lint, build, and test on every push/PR (`.github/workflows/ci.yml`).
 
 ## Official Docs Used
 

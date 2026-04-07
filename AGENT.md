@@ -60,6 +60,9 @@ npm install
 # Compile TypeScript to dist/
 npm run build
 
+# Lint (ESLint with typescript-eslint strictTypeChecked)
+npm run lint
+
 # Run all unit tests (Node.js built-in test runner)
 npm test
 
@@ -68,6 +71,8 @@ node --test dist/test/auth.test.js
 ```
 
 `npm test` should pass. The unit tests live under `test/*.test.ts` (compiled to `dist/test/*.test.js`) and use no external services. They rely on synthetic OpenAPI specs plus local downloader/runtime fixtures.
+
+CI runs lint, build, and test on every push/PR via `.github/workflows/ci.yml`.
 
 ## E2E Testing
 

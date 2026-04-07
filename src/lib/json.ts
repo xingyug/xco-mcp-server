@@ -6,7 +6,7 @@ export async function readJson(filePath: string): Promise<unknown> {
   try {
     return JSON.parse(contents);
   } catch (error) {
-    throw new Error(`Invalid JSON in ${filePath}: ${(error as Error).message}`);
+    throw new Error(`Invalid JSON in ${filePath}: ${(error as Error).message}`, { cause: error });
   }
 }
 
@@ -19,7 +19,7 @@ export function parseJsonText(text: string, label = "JSON"): unknown {
   try {
     return JSON.parse(text);
   } catch (error) {
-    throw new Error(`Failed to parse ${label}: ${(error as Error).message}`);
+    throw new Error(`Failed to parse ${label}: ${(error as Error).message}`, { cause: error });
   }
 }
 

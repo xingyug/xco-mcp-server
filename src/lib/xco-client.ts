@@ -18,7 +18,7 @@ interface ExecuteOptions {
 function replacePathParameters(routePath: string, args: OperationArgs, parameters: OperationInfo["parameters"]): string {
   let output = routePath;
 
-  for (const parameter of parameters.filter((item) => item?.in === "path")) {
+  for (const parameter of parameters.filter((item) => item.in === "path")) {
     const value = args[parameter.name];
     if (value === undefined || value === null) {
       throw new Error(`Missing required path parameter "${parameter.name}".`);
@@ -26,7 +26,7 @@ function replacePathParameters(routePath: string, args: OperationArgs, parameter
 
     output = output.replaceAll(
       `{${parameter.name}}`,
-      encodeURIComponent(String(value)),
+      encodeURIComponent(typeof value === "string" ? value : JSON.stringify(value)),
     );
   }
 
@@ -34,8 +34,8 @@ function replacePathParameters(routePath: string, args: OperationArgs, parameter
 }
 
 function mergePath(basePath: string | null | undefined, leafPath: string | null | undefined): string {
-  const left = String(basePath ?? "").replace(/\/+$/, "");
-  const right = String(leafPath ?? "").replace(/^\/+/, "");
+  const left = (basePath ?? "").replace(/\/+$/, "");
+  const right = (leafPath ?? "").replace(/^\/+/, "");
 
   if (!left && !right) {
     return "/";
@@ -67,7 +67,7 @@ function buildUrl(baseUrl: string, operation: OperationInfo, args: OperationArgs
 
   const searchParams = new URLSearchParams(url.search);
   for (const parameter of operation.parameters.filter(
-    (item) => item?.in === "query",
+    (item) => item.in === "query",
   )) {
     encodeQueryValue(searchParams, parameter.name, args[parameter.name]);
   }
@@ -78,12 +78,12 @@ function buildUrl(baseUrl: string, operation: OperationInfo, args: OperationArgs
 
 function normalizeHeaders(headers: Record<string, unknown>): Record<string, string> {
   const output: Record<string, string> = {};
-  for (const [key, value] of Object.entries(headers ?? {})) {
+  for (const [key, value] of Object.entries(headers)) {
     if (value === undefined || value === null) {
       continue;
     }
 
-    output[key] = String(value);
+    output[key] = typeof value === "string" ? value : JSON.stringify(value);
   }
 
   return output;
@@ -180,7 +180,7 @@ export async function executeRawRequest(config: XcoConfig, token: string | null,
   });
 
   const response = await fetch(url, {
-    method: String(input.method ?? "GET").toUpperCase(),
+    method: (input.method ?? "GET").toUpperCase(),
     headers,
     body: input.body === undefined ? null : JSON.stringify(input.body),
   });

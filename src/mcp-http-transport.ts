@@ -40,6 +40,7 @@ export type McpHttpHandler = ((req: IncomingMessage, res: ServerResponse) => Pro
 };
 
 export function createMcpHttpHandler(runtime: XcoRuntime): McpHttpHandler {
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- dispatch is a standalone function, not a method
   const { dispatch } = createMcpDispatch(runtime, PROTOCOL_VERSION);
   const sessions = new Map<string, McpSession>();
 
@@ -98,7 +99,15 @@ export function createMcpHttpHandler(runtime: XcoRuntime): McpHttpHandler {
 
   async function processRequest(message: JsonRpcRequest): Promise<JsonRpcResponse> {
     try {
-      const result = await dispatch(message.method!, message.params);
+      const method = message.method;
+      if (!method) {
+        return {
+          jsonrpc: "2.0",
+          id: message.id,
+          error: { code: -32600, message: "Invalid Request: missing method" },
+        };
+      }
+      const result = await dispatch(method, message.params);
       return { jsonrpc: "2.0", id: message.id, result };
     } catch (error) {
       const err = error as Error & { jsonRpcCode?: number };
@@ -132,7 +141,7 @@ export function createMcpHttpHandler(runtime: XcoRuntime): McpHttpHandler {
     try {
       message = JSON.parse(bodyStr) as JsonRpcRequest | JsonRpcRequest[];
     } catch {
-      return sendJsonRpcError(res, null, -32700, "Parse error", 400);
+      sendJsonRpcError(res, null, -32700, "Parse error", 400); return;
     }
 
     /* --- batch (array) --- */
@@ -169,7 +178,7 @@ export function createMcpHttpHandler(runtime: XcoRuntime): McpHttpHandler {
     }
 
     if (!isRequest) {
-      return sendJsonRpcError(res, null, -32600, "Invalid Request", 400);
+      sendJsonRpcError(res, null, -32600, "Invalid Request", 400); return;
     }
 
     // --- JSON-RPC request ---
@@ -177,20 +186,20 @@ export function createMcpHttpHandler(runtime: XcoRuntime): McpHttpHandler {
       const sessionId = crypto.randomUUID();
       sessions.set(sessionId, { id: sessionId, initialized: false });
       const response = await processRequest(message);
-      return sendJson(res, 200, response, {
+      sendJson(res, 200, response, {
         "mcp-session-id": sessionId,
-      });
+      }); return;
     }
 
     // All other requests require a valid session
     if (!getSession(req)) {
-      return sendJsonRpcError(
+      sendJsonRpcError(
         res,
         message.id ?? null,
         -32000,
         "Bad Request: missing or invalid session",
         400,
-      );
+      ); return;
     }
 
     const response = await processRequest(message);
@@ -205,7 +214,7 @@ export function createMcpHttpHandler(runtime: XcoRuntime): McpHttpHandler {
     messages: JsonRpcRequest[],
   ): Promise<void> {
     if (messages.length === 0) {
-      return sendJsonRpcError(res, null, -32600, "Empty batch", 400);
+      sendJsonRpcError(res, null, -32600, "Empty batch", 400); return;
     }
 
     const results: BatchResult[] = [];
@@ -260,8 +269,8 @@ export function createMcpHttpHandler(runtime: XcoRuntime): McpHttpHandler {
 
     // Extract any session ID from initialize responses
     const sessionEntry = results.find((r) => r.sessionId);
-    const extraHeaders: Record<string, string> = sessionEntry
-      ? { "mcp-session-id": sessionEntry.sessionId! }
+    const extraHeaders: Record<string, string> = sessionEntry?.sessionId
+      ? { "mcp-session-id": sessionEntry.sessionId }
       : {};
 
     const payload = results.map((r) => r.response);
@@ -273,7 +282,7 @@ export function createMcpHttpHandler(runtime: XcoRuntime): McpHttpHandler {
   function handleGet(req: IncomingMessage, res: ServerResponse): void {
     const session = getSession(req);
     if (!session) {
-      return sendJson(res, 400, { error: "Missing or invalid session" });
+      sendJson(res, 400, { error: "Missing or invalid session" }); return;
     }
     res.writeHead(405, { ...CORS_HEADERS, allow: "POST, DELETE" });
     res.end();
@@ -284,7 +293,7 @@ export function createMcpHttpHandler(runtime: XcoRuntime): McpHttpHandler {
   function handleDelete(req: IncomingMessage, res: ServerResponse): void {
     const session = getSession(req);
     if (!session) {
-      return sendJson(res, 400, { error: "Missing or invalid session" });
+      sendJson(res, 400, { error: "Missing or invalid session" }); return;
     }
     sessions.delete(session.id);
     res.writeHead(200, CORS_HEADERS);
@@ -306,8 +315,8 @@ export function createMcpHttpHandler(runtime: XcoRuntime): McpHttpHandler {
     }
 
     if (req.method === "POST") return handlePost(req, res);
-    if (req.method === "GET") return handleGet(req, res);
-    if (req.method === "DELETE") return handleDelete(req, res);
+    if (req.method === "GET") { handleGet(req, res); return; }
+    if (req.method === "DELETE") { handleDelete(req, res); return; }
 
     res.writeHead(405, { ...CORS_HEADERS, allow: "GET, POST, DELETE" });
     res.end();

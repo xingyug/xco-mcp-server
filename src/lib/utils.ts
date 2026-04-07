@@ -13,7 +13,7 @@ export const HTTP_METHODS = new Set([
 ]);
 
 export function slugify(value: string): string {
-  return String(value)
+  return value
     .normalize("NFKD")
     .replace(/[^\w\s-]/g, "")
     .trim()
@@ -23,7 +23,7 @@ export function slugify(value: string): string {
 }
 
 export function versionToSlug(version: string): string {
-  return String(version).trim();
+  return version.trim();
 }
 
 export function versionToSupportPath(version: string): string {
@@ -35,11 +35,12 @@ export function buildSupportDocsUrl(version: string): string {
 }
 
 export function summarizeText(value: unknown, fallback = ""): string {
-  if (!value) {
+  if (value === null || value === undefined || value === "") {
     return fallback;
   }
 
-  return String(value).replace(/\s+/g, " ").trim();
+  const text = typeof value === "string" ? value : JSON.stringify(value);
+  return text.replace(/\s+/g, " ").trim();
 }
 
 export function inferServiceSlugFromTitle(title: string, docUrl: string): string {
@@ -69,7 +70,7 @@ export async function listJsonFiles(rootDir: string): Promise<string[]> {
   const output: string[] = [];
 
   async function walk(currentDir: string): Promise<void> {
-    let entries: import("node:fs").Dirent[] = [];
+    let entries: import("node:fs").Dirent[];
     try {
       entries = await fs.readdir(currentDir, { withFileTypes: true });
     } catch {
@@ -94,7 +95,7 @@ export async function listJsonFiles(rootDir: string): Promise<string[]> {
   return output;
 }
 
-export function mergeDefined(...objects: Array<Record<string, unknown> | null | undefined>): Record<string, unknown> {
+export function mergeDefined(...objects: (Record<string, unknown> | null | undefined)[]): Record<string, unknown> {
   const output: Record<string, unknown> = {};
 
   for (const object of objects) {
@@ -113,7 +114,7 @@ export function mergeDefined(...objects: Array<Record<string, unknown> | null | 
 }
 
 export function makeToolName(serviceSlug: string, operationId: string | null, method: string, routePath: string): string {
-  const safeServiceSlug = String(serviceSlug).replace(/-/g, "_");
+  const safeServiceSlug = serviceSlug.replace(/-/g, "_");
 
   if (operationId) {
     return `${safeServiceSlug}__${slugify(operationId).replace(/-/g, "_")}`;
@@ -128,8 +129,8 @@ export function pickJsonContentType(content: Record<string, unknown> = {}): stri
     return "application/json";
   }
 
-  const first = Object.keys(content)[0];
-  return first ?? null;
+  const keys = Object.keys(content);
+  return keys.length > 0 ? keys[0] : null;
 }
 
 export function getContentSchema(content: Record<string, Record<string, unknown>> = {}): { contentType: string | null; schema: unknown } {
@@ -140,7 +141,7 @@ export function getContentSchema(content: Record<string, Record<string, unknown>
 
   return {
     contentType,
-    schema: (content[contentType] as Record<string, unknown>)?.schema ?? null,
+    schema: content[contentType].schema ?? null,
   };
 }
 
@@ -161,7 +162,11 @@ export function encodeQueryValue(searchParams: URLSearchParams, key: string, val
     return;
   }
 
-  searchParams.append(key, String(value));
+  if (typeof value === "string") {
+    searchParams.append(key, value);
+  } else {
+    searchParams.append(key, JSON.stringify(value));
+  }
 }
 
 export function ensureObject(value: unknown, label: string): Record<string, unknown> {
@@ -181,8 +186,8 @@ export function toAbsolutePath(cwd: string, value: string | null | undefined): s
     return os.homedir();
   }
 
-  if (String(value).startsWith("~/")) {
-    return path.join(os.homedir(), String(value).slice(2));
+  if (value.startsWith("~/")) {
+    return path.join(os.homedir(), value.slice(2));
   }
 
   return path.isAbsolute(value) ? value : path.resolve(cwd, value);

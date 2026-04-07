@@ -14,6 +14,10 @@ function parseBooleanish(value: unknown, fallback = false): boolean {
     return value;
   }
 
+  if (typeof value !== "string" && typeof value !== "number") {
+    return fallback;
+  }
+
   const normalized = String(value).trim().toLowerCase();
   if (["1", "true", "yes", "on"].includes(normalized)) {
     return true;
@@ -35,6 +39,10 @@ function parseBooleanishNullable(value: unknown): boolean | null {
     return value;
   }
 
+  if (typeof value !== "string" && typeof value !== "number") {
+    return null;
+  }
+
   const normalized = String(value).trim().toLowerCase();
   if (["1", "true", "yes", "on"].includes(normalized)) {
     return true;
@@ -50,16 +58,16 @@ function parseBooleanishNullable(value: unknown): boolean | null {
 export async function loadConfig(options: LoadConfigOptions = {}): Promise<XcoConfig> {
   const cwd = options.cwd ?? process.cwd();
   const env = options.env ?? process.env;
-  const xcoHome = toAbsolutePath(cwd, env.XCO_HOME ?? ".xco")!;
+  const xcoHome = toAbsolutePath(cwd, env.XCO_HOME ?? ".xco") ?? ".xco";
   const configPath = toAbsolutePath(
     cwd,
     env.XCO_CONFIG ?? path.join(xcoHome, "config.json"),
-  )!;
+  ) ?? path.join(xcoHome, "config.json");
   const sessionPath = toAbsolutePath(
     cwd,
     env.XCO_SESSION_PATH ?? path.join(xcoHome, "session.json"),
-  )!;
-  const manualSpecsDir = toAbsolutePath(cwd, env.XCO_SPECS_DIR ?? "specs")!;
+  ) ?? path.join(xcoHome, "session.json");
+  const manualSpecsDir = toAbsolutePath(cwd, env.XCO_SPECS_DIR ?? "specs") ?? "specs";
 
   let fileConfig: Record<string, unknown> = {};
   try {
@@ -103,31 +111,31 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<XcoCo
     configPath,
     sessionPath,
     manualSpecsDir,
-    activeVersion: (merged.activeVersion as string) ?? null,
-    specSource: (merged.specSource as string) ?? "official",
-    docsUrl: (merged.docsUrl as string) ?? null,
-    baseUrl: (merged.baseUrl as string) ?? null,
-    token: (merged.token as string) ?? null,
-    tokenEnv: (merged.tokenEnv as string) ?? null,
-    username: (merged.username as string) ?? null,
-    usernameEnv: (merged.usernameEnv as string) ?? null,
-    password: (merged.password as string) ?? null,
-    passwordEnv: (merged.passwordEnv as string) ?? null,
+    activeVersion: (merged.activeVersion as string | undefined) ?? null,
+    specSource: (merged.specSource as string | undefined) ?? "official",
+    docsUrl: (merged.docsUrl as string | undefined) ?? null,
+    baseUrl: (merged.baseUrl as string | undefined) ?? null,
+    token: (merged.token as string | undefined) ?? null,
+    tokenEnv: (merged.tokenEnv as string | undefined) ?? null,
+    username: (merged.username as string | undefined) ?? null,
+    usernameEnv: (merged.usernameEnv as string | undefined) ?? null,
+    password: (merged.password as string | undefined) ?? null,
+    passwordEnv: (merged.passwordEnv as string | undefined) ?? null,
     readonly: parseBooleanish(
       merged.readonly,
       parseBooleanish(fileConfig.readonly, false),
     ),
-    bastionJumps: (merged.bastionJumps as string) ?? null,
-    bastionIdentityFile: (merged.bastionIdentityFile as string) ?? null,
-    bastionPassword: (merged.bastionPassword as string) ?? null,
-    bastionPasswordEnv: (merged.bastionPasswordEnv as string) ?? null,
-    bastionPasswords: (merged.bastionPasswords as string) ?? null,
-    bastionPasswordsEnv: (merged.bastionPasswordsEnv as string) ?? null,
+    bastionJumps: (merged.bastionJumps as string | undefined) ?? null,
+    bastionIdentityFile: (merged.bastionIdentityFile as string | undefined) ?? null,
+    bastionPassword: (merged.bastionPassword as string | undefined) ?? null,
+    bastionPasswordEnv: (merged.bastionPasswordEnv as string | undefined) ?? null,
+    bastionPasswords: (merged.bastionPasswords as string | undefined) ?? null,
+    bastionPasswordsEnv: (merged.bastionPasswordsEnv as string | undefined) ?? null,
     bastionPasswordAuth: parseBooleanish(
       merged.bastionPasswordAuth,
       parseBooleanish(fileConfig.bastionPasswordAuth, false),
     ),
-    bastionTargetHost: (merged.bastionTargetHost as string) ?? null,
+    bastionTargetHost: (merged.bastionTargetHost as string | undefined) ?? null,
     bastionTargetPort:
       merged.bastionTargetPort !== undefined &&
       merged.bastionTargetPort !== null
@@ -137,12 +145,12 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<XcoCo
       merged.bastionLocalPort !== undefined && merged.bastionLocalPort !== null
         ? Number(merged.bastionLocalPort)
         : null,
-    bastionBindHost: (merged.bastionBindHost as string) ?? null,
+    bastionBindHost: (merged.bastionBindHost as string | undefined) ?? null,
     bastionStrictHostKeyChecking: parseBooleanishNullable(
       merged.bastionStrictHostKeyChecking ??
         fileConfig.bastionStrictHostKeyChecking,
     ),
-    tlsRejectUnauthorized: (merged.tlsRejectUnauthorized as string) ?? null,
+    tlsRejectUnauthorized: (merged.tlsRejectUnauthorized as string | undefined) ?? null,
   };
 }
 
@@ -193,12 +201,14 @@ export function resolveToken(config: XcoConfig, overrides: ConfigOverrides = {})
     return config.token;
   }
 
-  if (overrides.tokenEnv && process.env[overrides.tokenEnv]) {
-    return process.env[overrides.tokenEnv]!;
+  if (overrides.tokenEnv) {
+    const envValue = process.env[overrides.tokenEnv];
+    if (envValue) return envValue;
   }
 
-  if (config.tokenEnv && process.env[config.tokenEnv]) {
-    return process.env[config.tokenEnv]!;
+  if (config.tokenEnv) {
+    const envValue = process.env[config.tokenEnv];
+    if (envValue) return envValue;
   }
 
   return null;
@@ -213,12 +223,14 @@ export function resolveUsername(config: XcoConfig, overrides: ConfigOverrides = 
     return config.username;
   }
 
-  if (overrides.usernameEnv && process.env[overrides.usernameEnv]) {
-    return process.env[overrides.usernameEnv]!;
+  if (overrides.usernameEnv) {
+    const envValue = process.env[overrides.usernameEnv];
+    if (envValue) return envValue;
   }
 
-  if (config.usernameEnv && process.env[config.usernameEnv]) {
-    return process.env[config.usernameEnv]!;
+  if (config.usernameEnv) {
+    const envValue = process.env[config.usernameEnv];
+    if (envValue) return envValue;
   }
 
   return null;
@@ -233,12 +245,14 @@ export function resolvePassword(config: XcoConfig, overrides: ConfigOverrides = 
     return config.password;
   }
 
-  if (overrides.passwordEnv && process.env[overrides.passwordEnv]) {
-    return process.env[overrides.passwordEnv]!;
+  if (overrides.passwordEnv) {
+    const envValue = process.env[overrides.passwordEnv];
+    if (envValue) return envValue;
   }
 
-  if (config.passwordEnv && process.env[config.passwordEnv]) {
-    return process.env[config.passwordEnv]!;
+  if (config.passwordEnv) {
+    const envValue = process.env[config.passwordEnv];
+    if (envValue) return envValue;
   }
 
   return null;

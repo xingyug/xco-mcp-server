@@ -6,8 +6,8 @@ import fs from "node:fs/promises";
 
 import { readJson, writeJson, parseJsonText, tryParseJson, isParseFailure } from "../src/lib/json.js";
 
-describe("readJson", () => {
-  it("reads and parses valid JSON file", async () => {
+void describe("readJson", () => {
+  void it("reads and parses valid JSON file", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "xco-json-"));
     const filePath = path.join(tmpDir, "test.json");
     try {
@@ -19,7 +19,7 @@ describe("readJson", () => {
     }
   });
 
-  it("throws for invalid JSON file", async () => {
+  void it("throws for invalid JSON file", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "xco-json-"));
     const filePath = path.join(tmpDir, "bad.json");
     try {
@@ -30,13 +30,13 @@ describe("readJson", () => {
     }
   });
 
-  it("throws for missing file", async () => {
+  void it("throws for missing file", async () => {
     await assert.rejects(() => readJson("/tmp/nonexistent-xco-json-file.json"));
   });
 });
 
-describe("writeJson", () => {
-  it("writes formatted JSON and creates parent directories", async () => {
+void describe("writeJson", () => {
+  void it("writes formatted JSON and creates parent directories", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "xco-json-"));
     const filePath = path.join(tmpDir, "sub", "out.json");
     try {
@@ -50,47 +50,47 @@ describe("writeJson", () => {
   });
 });
 
-describe("parseJsonText", () => {
-  it("parses valid JSON text", () => {
+void describe("parseJsonText", () => {
+  void it("parses valid JSON text", () => {
     assert.deepEqual(parseJsonText('{"a":1}'), { a: 1 });
   });
 
-  it("throws with label for invalid JSON", () => {
+  void it("throws with label for invalid JSON", () => {
     assert.throws(() => parseJsonText("{bad}", "config"), /Failed to parse config/);
   });
 });
 
-describe("tryParseJson / isParseFailure", () => {
-  it("returns parsed value for valid JSON", () => {
+void describe("tryParseJson / isParseFailure", () => {
+  void it("returns parsed value for valid JSON", () => {
     const result = tryParseJson('{"a":1}');
     assert.equal(isParseFailure(result), false);
     assert.deepEqual(result, { a: 1 });
   });
 
-  it("returns parse failure sentinel for invalid JSON", () => {
+  void it("returns parse failure sentinel for invalid JSON", () => {
     const result = tryParseJson("{bad}");
     assert.equal(isParseFailure(result), true);
   });
 
-  it("correctly handles valid JSON null without conflation", () => {
+  void it("correctly handles valid JSON null without conflation", () => {
     const result = tryParseJson("null");
     assert.equal(isParseFailure(result), false);
     assert.equal(result, null);
   });
 
-  it("correctly handles valid JSON false", () => {
+  void it("correctly handles valid JSON false", () => {
     const result = tryParseJson("false");
     assert.equal(isParseFailure(result), false);
     assert.equal(result, false);
   });
 
-  it("correctly handles valid JSON 0", () => {
+  void it("correctly handles valid JSON 0", () => {
     const result = tryParseJson("0");
     assert.equal(isParseFailure(result), false);
     assert.equal(result, 0);
   });
 
-  it("isParseFailure returns false for normal values", () => {
+  void it("isParseFailure returns false for normal values", () => {
     assert.equal(isParseFailure(null), false);
     assert.equal(isParseFailure(undefined), false);
     assert.equal(isParseFailure(0), false);

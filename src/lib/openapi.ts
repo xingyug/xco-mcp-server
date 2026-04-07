@@ -5,7 +5,6 @@ import type {
   JsonSchema,
   OpenApiDocument,
   OpenApiOperation,
-  OperationInfo,
   OperationParameter,
   PathItem,
   SpecEntry,
@@ -25,7 +24,7 @@ import {
 } from "./utils.js";
 
 function deepClone<T>(value: T): T {
-  return value === undefined ? undefined as T : JSON.parse(JSON.stringify(value));
+  return value === undefined ? undefined as T : JSON.parse(JSON.stringify(value)) as T;
 }
 
 export function resolveLocalRef(document: OpenApiDocument, ref: string | undefined | null): unknown {
@@ -36,7 +35,7 @@ export function resolveLocalRef(document: OpenApiDocument, ref: string | undefin
   return ref
     .slice(2)
     .split("/")
-    .reduce((current: unknown, key: string) => (current as Record<string, unknown>)?.[decodeURIComponent(key)], document as unknown);
+    .reduce<unknown>((current: unknown, key: string) => current != null ? (current as Record<string, unknown>)[decodeURIComponent(key)] : undefined, document);
 }
 
 export function dereferenceSchema(document: OpenApiDocument, schema: unknown, stack = new Set<string>()): unknown {
@@ -104,7 +103,7 @@ function mergeParameters(pathParameters: OperationParameter[] = [], operationPar
   const merged = new Map<string, OperationParameter>();
 
   for (const parameter of [...pathParameters, ...operationParameters]) {
-    const key = `${parameter?.in}:${parameter?.name}`;
+    const key = `${parameter.in}:${parameter.name}`;
     merged.set(key, parameter);
   }
 
@@ -162,17 +161,17 @@ function compactSchema(schema: unknown, depth = 0, maxDepth = 2): unknown {
 }
 
 function schemaFromParameter(document: OpenApiDocument, parameter: OperationParameter): JsonSchema {
-  const resolvedParameter = parameter?.$ref
+  const resolvedParameter = parameter.$ref
     ? resolveLocalRef(document, parameter.$ref) as OperationParameter
     : parameter;
-  const schema = resolvedParameter?.schema
+  const schema = resolvedParameter.schema
     ? dereferenceSchema(document, resolvedParameter.schema) as JsonSchema
     : { type: "string" };
 
   return {
     ...schema,
     description: summarizeText(
-      [resolvedParameter?.description, `Location: ${resolvedParameter?.in}`]
+      [resolvedParameter.description, `Location: ${resolvedParameter.in}`]
         .filter(Boolean)
         .join(" "),
     ),
@@ -183,15 +182,15 @@ function buildInputSchema(document: OpenApiDocument, pathItem: PathItem, operati
   const properties: Record<string, JsonSchema> = {};
   const required: string[] = [];
   const parameters = mergeParameters(
-    pathItem.parameters as OperationParameter[],
-    operation.parameters as OperationParameter[],
+    pathItem.parameters,
+    operation.parameters,
   );
 
   for (const parameter of parameters) {
-    const resolvedParameter = parameter?.$ref
+    const resolvedParameter = parameter.$ref
       ? resolveLocalRef(document, parameter.$ref) as OperationParameter
       : parameter;
-    if (!resolvedParameter?.name) {
+    if (!resolvedParameter.name) {
       continue;
     }
 
@@ -293,10 +292,10 @@ function describeOperation(
       tags: operation.tags ?? [],
       requiresAuth: operationRequiresAuth(document, operation),
       parameters: mergeParameters(
-        pathItem.parameters as OperationParameter[],
-        operation.parameters as OperationParameter[],
+        pathItem.parameters,
+        operation.parameters,
       ).map((parameter) =>
-        parameter?.$ref
+        parameter.$ref
           ? resolveLocalRef(document, parameter.$ref) as OperationParameter
           : deepClone(parameter),
       ),
@@ -335,13 +334,13 @@ export async function loadSpecEntries(config: XcoConfig): Promise<SpecEntry[]> {
     const manifestPath = path.join(versionDir, "manifest.json");
     if (await fileExists(manifestPath)) {
       const manifest = (await readJson(manifestPath)) as Record<string, unknown>;
-      for (const service of (manifest.services as Array<Record<string, unknown>>) ?? []) {
+      for (const service of (manifest.services as Record<string, unknown>[] | undefined) ?? []) {
         const specPath = path.join(versionDir, service.specFile as string);
         const spec = (await readJson(specPath)) as OpenApiDocument;
         entries.push({
-          serviceSlug: (service.serviceSlug as string) ?? inferServiceSlug(spec, specPath),
-          title: (service.title as string) ?? inferServiceTitle(spec, specPath),
-          docUrl: (service.docUrl as string) ?? null,
+          serviceSlug: (service.serviceSlug as string | undefined) ?? inferServiceSlug(spec, specPath),
+          title: (service.title as string | undefined) ?? inferServiceTitle(spec, specPath),
+          docUrl: (service.docUrl as string | undefined) ?? null,
           version: manifest.version as string,
           specPath,
           spec,
@@ -376,7 +375,7 @@ export async function loadOperations(config: XcoConfig): Promise<{ specEntries: 
     for (const [routePath, pathItem] of Object.entries(
       entry.spec.paths ?? {},
     )) {
-      for (const [method, operation] of Object.entries(pathItem ?? {})) {
+      for (const [method, operation] of Object.entries(pathItem)) {
         if (!HTTP_METHODS.has(method)) {
           continue;
         }
@@ -387,7 +386,7 @@ export async function loadOperations(config: XcoConfig): Promise<{ specEntries: 
             entry,
             routePath,
             method,
-            pathItem as PathItem,
+            pathItem,
             operation as OpenApiOperation,
           ),
         );

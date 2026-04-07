@@ -13,7 +13,7 @@ import {
   getOfficialDocsVersion,
 } from "../src/lib/downloader.js";
 
-test("extractServiceReferences parses XCO API reference links from support docs HTML", () => {
+void test("extractServiceReferences parses XCO API reference links from support docs HTML", () => {
   const html = `
     <a target="_blank" href="https://documentation.extremenetworks.com/ExtremeCloud%20Orchestrator%20v3.7.0%20API%20Documents/tenant.html" class="c-doc-list__doc o-clip-sm">
       <h4>ExtremeCloud Orchestrator Tenant Service API Reference, 3.7.0</h4>
@@ -43,7 +43,7 @@ test("extractServiceReferences parses XCO API reference links from support docs 
   ]);
 });
 
-test("extractServiceReferences resolves relative instance-doc links for both fetch and public URLs", () => {
+void test("extractServiceReferences resolves relative instance-doc links for both fetch and public URLs", () => {
   const html = `
     <a href="/docs/auth.html">
       <span>XCO Auth Service API Reference</span>
@@ -76,17 +76,17 @@ test("extractServiceReferences resolves relative instance-doc links for both fet
   );
 });
 
-test("extractAvailableVersions parses versions from support docs HTML", () => {
+void test("extractAvailableVersions parses versions from support docs HTML", () => {
   const html = "Version 4.0.0 Version 3.8.7 Version 3.7.0 Version 3.7.0";
   assert.deepEqual(extractAvailableVersions(html), ["3.7.0", "3.8.7", "4.0.0"]);
 });
 
-test("getOfficialDocsVersion maps patch releases to x.y.0", () => {
+void test("getOfficialDocsVersion maps patch releases to x.y.0", () => {
   assert.equal(getOfficialDocsVersion("3.8.7"), "3.8.0");
   assert.equal(getOfficialDocsVersion("3.8.0"), "3.8.0");
 });
 
-test("extractSpecFromRedocHtml parses embedded OpenAPI JSON from API docs page", () => {
+void test("extractSpecFromRedocHtml parses embedded OpenAPI JSON from API docs page", () => {
   const html = `
     <html>
       <body>
@@ -116,7 +116,7 @@ test("extractSpecFromRedocHtml parses embedded OpenAPI JSON from API docs page",
   });
 });
 
-test("extractSpecFromDocument parses direct OpenAPI JSON payloads", () => {
+void test("extractSpecFromDocument parses direct OpenAPI JSON payloads", () => {
   const text = JSON.stringify({
     openapi: "3.0.3",
     info: {
@@ -148,7 +148,7 @@ test("extractSpecFromDocument parses direct OpenAPI JSON payloads", () => {
   });
 });
 
-test("downloadVersionBundle falls back from patch release docs to the matching x.y.0 docs", async () => {
+void test("downloadVersionBundle falls back from patch release docs to the matching x.y.0 docs", async () => {
   const tempRoot = await fs.mkdtemp(
     path.join(os.tmpdir(), "xco-downloader-test-"),
   );
@@ -157,7 +157,7 @@ test("downloadVersionBundle falls back from patch release docs to the matching x
   const tenantDocUrl =
     "https://documentation.extremenetworks.com/ExtremeCloud%20Orchestrator%20v3.8.0%20API%20Documents/tenant.html";
 
-  const fetchImpl = async (url: string): Promise<{ ok: boolean; status: number; statusText: string; text(): Promise<string> }> => {
+  const fetchImpl = (url: string): Promise<{ ok: boolean; status: number; statusText: string; text(): Promise<string> }> => {
     const bodyByUrl = new Map([
       [
         fallbackSupportUrl,
@@ -173,14 +173,14 @@ test("downloadVersionBundle falls back from patch release docs to the matching x
       throw new Error(`Unexpected fetch URL in test: ${url}`);
     }
 
-    return {
+    return Promise.resolve({
       ok: true,
       status: 200,
       statusText: "OK",
-      async text() {
-        return bodyByUrl.get(url)!;
+      text() {
+        return Promise.resolve(bodyByUrl.get(url)!);
       },
-    };
+    });
   };
 
   const manifest = await downloadVersionBundle("3.8.7", {
