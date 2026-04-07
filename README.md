@@ -1,6 +1,8 @@
 # xco-mcp-server
 
-Unofficial multi-entry MCP/CLI/HTTP server for ExtremeCloud Orchestrator OpenAPI bundles.
+Unofficial multi-entry MCP/CLI/HTTP server for ExtremeCloud Orchestrator (XCO) OpenAPI bundles.
+
+> **Note:** XCO is the current name for what was previously called **EFA (Extreme Fabric Automation)**. If you see references to EFA in older documentation or deployments, they refer to the same product.
 
 ## Project Status
 
