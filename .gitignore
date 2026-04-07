@@ -28,6 +28,9 @@ build/
 # Zone.Identifier files (Windows)
 *:Zone.Identifier
 
+# Reference PDFs (downloaded EFA/XCO manuals)
+docs/reference/
+
 # TLS certificates and private keys
 *.pem
 *.key
