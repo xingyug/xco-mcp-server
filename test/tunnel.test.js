@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   buildTunnelMatchPattern,
   buildSshTunnelCommand,
+  buildSshTunnelSpec,
   deriveTunnelTarget,
   getTunnelSettings,
   parseBastionJumps,
@@ -160,4 +161,158 @@ test("buildTunnelMatchPattern matches the unique local forward tuple", () => {
     }),
     String.raw`ssh .* -L 127\.0\.0\.1:9443:10\.20\.30\.40:8080( |$)`,
   );
+});
+
+// --- Per-hop password tests ---
+
+test("getTunnelSettings returns single password without explicitMultiPassword", () => {
+  const settings = getTunnelSettings(
+    {
+      bastionJumps: "user@hop1,user@hop2",
+      bastionPassword: "shared-pass",
+      bastionPasswordAuth: true,
+    },
+    {},
+  );
+  assert.deepEqual(settings.passwords, ["shared-pass"]);
+  assert.equal(settings.explicitMultiPassword, false);
+  assert.equal(settings.password, "shared-pass");
+});
+
+test("getTunnelSettings returns explicit multi-password with explicitMultiPassword flag", () => {
+  const settings = getTunnelSettings(
+    {
+      bastionJumps: "user@hop1,user@hop2",
+      bastionPasswords: "pass1,pass2",
+      bastionPasswordAuth: true,
+    },
+    {},
+  );
+  assert.deepEqual(settings.passwords, ["pass1", "pass2"]);
+  assert.equal(settings.explicitMultiPassword, true);
+});
+
+test("getTunnelSettings throws on password count mismatch", () => {
+  assert.throws(
+    () =>
+      getTunnelSettings(
+        {
+          bastionJumps: "user@hop1,user@hop2,user@hop3",
+          bastionPasswords: "pass1,pass2",
+          bastionPasswordAuth: true,
+        },
+        {},
+      ),
+    /password count mismatch.*2.*3/i,
+  );
+});
+
+test("getTunnelSettings throws on empty password in explicit multi-password", () => {
+  assert.throws(
+    () =>
+      getTunnelSettings(
+        {
+          bastionJumps: "user@hop1,user@hop2",
+          bastionPasswords: "pass1,",
+          bastionPasswordAuth: true,
+        },
+        {},
+      ),
+    /empty/i,
+  );
+});
+
+test("getTunnelSettings resolves per-hop passwords from env vars", () => {
+  const envKey1 = "XCO_TEST_HOP_PASS_A";
+  const envKey2 = "XCO_TEST_HOP_PASS_B";
+  process.env[envKey1] = "envPass1";
+  process.env[envKey2] = "envPass2";
+  try {
+    const settings = getTunnelSettings(
+      {
+        bastionJumps: "user@hop1,user@hop2",
+        bastionPasswordsEnv: `${envKey1},${envKey2}`,
+        bastionPasswordAuth: true,
+      },
+      {},
+    );
+    assert.deepEqual(settings.passwords, ["envPass1", "envPass2"]);
+    assert.equal(settings.explicitMultiPassword, true);
+  } finally {
+    delete process.env[envKey1];
+    delete process.env[envKey2];
+  }
+});
+
+test("getTunnelSettings throws when env var not set for per-hop passwords", () => {
+  const envKey = "XCO_TEST_MISSING_" + Date.now();
+  assert.throws(
+    () =>
+      getTunnelSettings(
+        {
+          bastionJumps: "user@hop1",
+          bastionPasswordsEnv: envKey,
+          bastionPasswordAuth: true,
+        },
+        {},
+      ),
+    /not set/i,
+  );
+});
+
+test("buildSshTunnelSpec accepts plural-only passwords without singular password", () => {
+  const settings = getTunnelSettings(
+    {
+      bastionJumps: "user@hop1,user@hop2",
+      bastionPasswords: "pass1,pass2",
+      bastionPasswordAuth: true,
+    },
+    {},
+  );
+  // Should NOT throw even though settings.password is null
+  const spec = buildSshTunnelSpec("https://xco.example.com", {
+    ...settings,
+    localPort: 9999,
+  });
+  assert.equal(spec.passwordAuth, true);
+  assert.equal(spec.finalHop, "user@hop2");
+});
+
+test("buildSshTunnelSpec rejects passwordAuth with no password at all", () => {
+  assert.throws(
+    () =>
+      buildSshTunnelSpec("https://xco.example.com", {
+        jumps: ["user@hop1"],
+        passwordAuth: true,
+        password: null,
+        passwords: [],
+        localPort: 9999,
+      }),
+    /no bastion password/i,
+  );
+});
+
+// --- TLS config tests ---
+
+test("loadConfig reads XCO_TLS_REJECT_UNAUTHORIZED", async () => {
+  const { loadConfig } = await import("../src/lib/config.js");
+  process.env.XCO_TLS_REJECT_UNAUTHORIZED = "0";
+  try {
+    const config = await loadConfig({});
+    assert.equal(config.tlsRejectUnauthorized, "0");
+  } finally {
+    delete process.env.XCO_TLS_REJECT_UNAUTHORIZED;
+  }
+});
+
+test("getTunnelSettings trims whitespace from per-hop passwords", () => {
+  const settings = getTunnelSettings(
+    {
+      bastionJumps: "user@hop1,user@hop2",
+      bastionPasswords: " pass1 , pass2 ",
+      bastionPasswordAuth: true,
+    },
+    {},
+  );
+  assert.deepEqual(settings.passwords, ["pass1", "pass2"]);
 });

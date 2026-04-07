@@ -148,12 +148,59 @@ node ./src/cli.js use-version \
   --bastion-target-host 10.20.30.40
 ```
 
+### Per-Hop Bastion Passwords
+
+When each jump host in a multi-hop chain requires a different password, you can supply one password per hop:
+
+```bash
+export HOP1_PASS='password-for-jump1'
+export HOP2_PASS='password-for-jump2'
+node ./src/cli.js use-version \
+  --version 3.7.0 \
+  --bastion-jumps ops@jump1,ops@jump2 \
+  --bastion-password-auth true \
+  --bastion-passwords-env HOP1_PASS,HOP2_PASS \
+  --bastion-target-host 10.20.30.40
+```
+
+Or via environment variables:
+
+```bash
+export XCO_BASTION_JUMPS='ops@jump1,ops@jump2'
+export XCO_BASTION_PASSWORDS_ENV='HOP1_PASS,HOP2_PASS'
+export XCO_BASTION_PASSWORD_AUTH=true
+```
+
+Rules:
+
+- provide exactly 1 shared password **or** exactly N passwords for N jumps
+- mismatched counts are rejected at startup
+- the askpass helper matches the SSH prompt `user@host's password:` against configured jump entries
+- if no match is found, the prompt fails rather than sending a wrong password
+- plaintext passwords are never persisted; only env var names are saved to `config.json`
+
 Notes:
 
 - plaintext bastion passwords are never written to `config.json`
 - only the environment variable name can be persisted
 - one-time `bastionPassword` values are useful for a single `setup` or `raw` command, but not for long-lived persisted workflows
 - MFA, OTP, and interactive keyboard-auth prompts are still outside the supported path
+
+### TLS Certificate Validation
+
+Corporate XCO instances often use self-signed or internal CA certificates. To skip TLS certificate validation:
+
+```bash
+export XCO_TLS_REJECT_UNAUTHORIZED=0
+```
+
+Or pass it via CLI:
+
+```bash
+node ./src/cli.js call tenant__gettenants --tls-reject-unauthorized 0
+```
+
+This sets `NODE_TLS_REJECT_UNAUTHORIZED=0` for all HTTPS requests made by the runtime. **Use only in trusted networks** — disabling TLS validation removes protection against man-in-the-middle attacks.
 
 ## MCP
 

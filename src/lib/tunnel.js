@@ -50,6 +50,53 @@ function resolveBastionPassword(config, overrides = {}) {
   return null;
 }
 
+function resolveBastionPasswords(config, overrides = {}) {
+  // Per-hop passwords from explicit values (comma-separated)
+  const rawPasswords =
+    overrides.bastionPasswords ?? config.bastionPasswords ?? null;
+  if (rawPasswords) {
+    const list = (
+      Array.isArray(rawPasswords)
+        ? rawPasswords
+        : String(rawPasswords).split(",")
+    ).map((p) => String(p).trim());
+    if (list.length > 0 && list.some(Boolean)) {
+      return { passwords: list, explicit: true };
+    }
+  }
+
+  // Per-hop passwords from env var names (comma-separated names)
+  const rawEnvNames =
+    overrides.bastionPasswordsEnv ?? config.bastionPasswordsEnv ?? null;
+  if (rawEnvNames) {
+    const names = (
+      Array.isArray(rawEnvNames)
+        ? rawEnvNames
+        : String(rawEnvNames).split(",")
+    )
+      .map((n) => String(n).trim())
+      .filter(Boolean);
+    if (names.length > 0) {
+      const resolved = names.map((name) => process.env[name] ?? "");
+      const missing = names.filter((name) => !process.env[name]);
+      if (missing.length > 0) {
+        throw new Error(
+          `Bastion password env var(s) not set: ${missing.join(", ")}`,
+        );
+      }
+      return { passwords: resolved, explicit: true };
+    }
+  }
+
+  // Fall back to single password (not explicit multi-password)
+  const single = resolveBastionPassword(config, overrides);
+  if (single) {
+    return { passwords: [single], explicit: false };
+  }
+
+  return { passwords: [], explicit: false };
+}
+
 export function parseBastionJumps(value) {
   if (!value) {
     return [];
@@ -66,8 +113,33 @@ export function parseBastionJumps(value) {
 }
 
 export function getTunnelSettings(config, overrides = {}) {
+  const jumps = parseBastionJumps(overrides.bastionJumps ?? config.bastionJumps);
+  const resolved = resolveBastionPasswords(config, overrides);
+
+  // Validate password count: must be 0, 1, or exactly jumps.length
+  if (
+    resolved.passwords.length > 1 &&
+    jumps.length > 0 &&
+    resolved.passwords.length !== jumps.length
+  ) {
+    throw new Error(
+      `Bastion password count mismatch: ${resolved.passwords.length} password(s) provided for ${jumps.length} jump(s). ` +
+        "Provide exactly 1 shared password or one password per hop.",
+    );
+  }
+
+  // Validate no empty entries in explicit multi-password
+  if (resolved.explicit && resolved.passwords.length > 1) {
+    const emptyIdx = resolved.passwords.findIndex((p) => !p);
+    if (emptyIdx !== -1) {
+      throw new Error(
+        `Bastion password at index ${emptyIdx} is empty. All per-hop passwords must be non-empty.`,
+      );
+    }
+  }
+
   return {
-    jumps: parseBastionJumps(overrides.bastionJumps ?? config.bastionJumps),
+    jumps,
     identityFile: toAbsolutePath(
       config.cwd ?? process.cwd(),
       overrides.bastionIdentityFile ?? config.bastionIdentityFile ?? null,
@@ -77,6 +149,8 @@ export function getTunnelSettings(config, overrides = {}) {
       parseBoolean(config.bastionPasswordAuth) ??
       false,
     password: resolveBastionPassword(config, overrides),
+    passwords: resolved.passwords,
+    explicitMultiPassword: resolved.explicit && resolved.passwords.length > 1,
     passwordEnv:
       overrides.bastionPasswordEnv ?? config.bastionPasswordEnv ?? null,
     targetHost: overrides.bastionTargetHost ?? config.bastionTargetHost ?? null,
@@ -127,7 +201,11 @@ export function buildSshTunnelSpec(logicalBaseUrl, settings) {
     throw new Error("No bastion jumps are configured.");
   }
 
-  if (settings.passwordAuth && !settings.password) {
+  if (
+    settings.passwordAuth &&
+    !settings.password &&
+    !(settings.passwords && settings.passwords.length > 0)
+  ) {
     throw new Error(
       "Bastion password auth is enabled, but no bastion password or bastion password env value is available.",
     );
@@ -204,8 +282,69 @@ export function buildSshTunnelCommand(logicalBaseUrl, settings) {
   };
 }
 
-function createAskpassHelper() {
+function createAskpassHelper(passwords, jumps) {
   const helperDir = fs.mkdtempSync(path.join(os.tmpdir(), "xco-askpass-"));
+
+  if (Array.isArray(passwords) && passwords.length > 1 && Array.isArray(jumps)) {
+    // Prompt-aware: match user@host from SSH prompt against jump hosts
+    const helperPath = path.join(helperDir, "askpass.sh");
+    fs.writeFileSync(
+      helperPath,
+      [
+        "#!/bin/sh",
+        'PROMPT="${1:-}"',
+        "",
+        '# Extract user@host from prompt like "user@host\'s password: "',
+        "TARGET=$(printf '%s' \"$PROMPT\" | sed -n \"s/^\\([^']*\\)'s password.*/\\1/p\")",
+        "",
+        'if [ -n "$TARGET" ] && [ -n "$XCO_BASTION_ASKPASS_KEYS" ]; then',
+        '  OLD_IFS="$IFS"',
+        "  IFS='|'",
+        "  IDX=0",
+        "  for KEY in $XCO_BASTION_ASKPASS_KEYS; do",
+        '    if [ "$KEY" = "$TARGET" ]; then',
+        '      eval "PASS=\\$XCO_BASTION_ASKPASS_${IDX}"',
+        '      if [ -n "$PASS" ]; then',
+        "        printf '%s\\n' \"$PASS\"",
+        "        exit 0",
+        "      fi",
+        "    fi",
+        "    IDX=$((IDX + 1))",
+        "  done",
+        '  IFS="$OLD_IFS"',
+        "fi",
+        "",
+        "# In multi-password mode, fail if no match found rather than sending wrong password",
+        'echo "xco-askpass: no matching hop for prompt: $PROMPT" >&2',
+        "exit 1",
+        "",
+      ].join("\n"),
+      { encoding: "utf8", mode: 0o700 },
+    );
+    fs.chmodSync(helperPath, 0o700);
+
+    // Build env vars: keys mapping + per-hop passwords
+    const env = {
+      DISPLAY: process.env.DISPLAY ?? "codex:0",
+      SSH_ASKPASS: helperPath,
+      SSH_ASKPASS_REQUIRE: "force",
+      XCO_BASTION_ASKPASS_KEYS: jumps.join("|"),
+      XCO_BASTION_ASKPASS_PASSWORD: passwords[0],
+    };
+    for (let i = 0; i < passwords.length; i++) {
+      env[`XCO_BASTION_ASKPASS_${i}`] = passwords[i];
+    }
+
+    return {
+      path: helperPath,
+      env,
+      cleanup() {
+        fs.rmSync(helperDir, { recursive: true, force: true });
+      },
+    };
+  }
+
+  // Single password: simple echo helper (backward compatible)
   const helperPath = path.join(helperDir, "askpass.sh");
   fs.writeFileSync(
     helperPath,
@@ -327,8 +466,18 @@ export async function startSshTunnel(logicalBaseUrl, settings) {
     ...settings,
     localPort,
   });
+
+  const useMultiPassword =
+    tunnelCommand.spec.passwordAuth && settings.explicitMultiPassword;
+
+  const effectivePassword =
+    settings.password ?? settings.passwords?.[0] ?? null;
+
   const askpassHelper = tunnelCommand.spec.passwordAuth
-    ? createAskpassHelper()
+    ? createAskpassHelper(
+        useMultiPassword ? settings.passwords : null,
+        useMultiPassword ? settings.jumps : null,
+      )
     : null;
 
   const child = spawn(tunnelCommand.command, tunnelCommand.args, {
@@ -336,9 +485,9 @@ export async function startSshTunnel(logicalBaseUrl, settings) {
       ...process.env,
       ...tunnelCommand.env,
       ...(askpassHelper?.env ?? {}),
-      ...(tunnelCommand.spec.passwordAuth
+      ...(tunnelCommand.spec.passwordAuth && !useMultiPassword
         ? {
-            XCO_BASTION_ASKPASS_PASSWORD: settings.password,
+            XCO_BASTION_ASKPASS_PASSWORD: effectivePassword,
           }
         : {}),
     },

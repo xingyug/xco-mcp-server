@@ -87,6 +87,7 @@ function sharedConnectionFlags(flags) {
         : parseBoolean(flags["bastion-password-auth"]),
     bastionPassword: flags["bastion-password"],
     bastionPasswordEnv: flags["bastion-password-env"],
+    bastionPasswordsEnv: flags["bastion-passwords-env"],
     bastionTargetHost: flags["bastion-target-host"],
     bastionTargetPort:
       flags["bastion-target-port"] === undefined
@@ -101,6 +102,7 @@ function sharedConnectionFlags(flags) {
       flags["bastion-strict-host-key-checking"] === undefined
         ? undefined
         : parseBoolean(flags["bastion-strict-host-key-checking"]),
+    tlsRejectUnauthorized: flags["tls-reject-unauthorized"],
   };
 }
 

@@ -64,12 +64,15 @@ export async function loadConfig(options = {}) {
     bastionIdentityFile: env.XCO_BASTION_IDENTITY_FILE,
     bastionPassword: env.XCO_BASTION_PASSWORD,
     bastionPasswordEnv: env.XCO_BASTION_PASSWORD_ENV,
+    bastionPasswords: env.XCO_BASTION_PASSWORDS,
+    bastionPasswordsEnv: env.XCO_BASTION_PASSWORDS_ENV,
     bastionPasswordAuth: env.XCO_BASTION_PASSWORD_AUTH,
     bastionTargetHost: env.XCO_BASTION_TARGET_HOST,
     bastionTargetPort: env.XCO_BASTION_TARGET_PORT,
     bastionLocalPort: env.XCO_BASTION_LOCAL_PORT,
     bastionBindHost: env.XCO_BASTION_BIND_HOST,
     bastionStrictHostKeyChecking: env.XCO_BASTION_STRICT_HOST_KEY_CHECKING,
+    tlsRejectUnauthorized: env.XCO_TLS_REJECT_UNAUTHORIZED,
   });
 
   return {
@@ -96,6 +99,8 @@ export async function loadConfig(options = {}) {
     bastionIdentityFile: merged.bastionIdentityFile ?? null,
     bastionPassword: merged.bastionPassword ?? null,
     bastionPasswordEnv: merged.bastionPasswordEnv ?? null,
+    bastionPasswords: merged.bastionPasswords ?? null,
+    bastionPasswordsEnv: merged.bastionPasswordsEnv ?? null,
     bastionPasswordAuth: parseBooleanish(
       merged.bastionPasswordAuth,
       parseBooleanish(fileConfig.bastionPasswordAuth, false),
@@ -115,6 +120,7 @@ export async function loadConfig(options = {}) {
       merged.bastionStrictHostKeyChecking,
       parseBooleanish(fileConfig.bastionStrictHostKeyChecking, false),
     ),
+    tlsRejectUnauthorized: merged.tlsRejectUnauthorized ?? null,
   };
 }
 
@@ -134,6 +140,7 @@ export async function saveConfig(config, patch) {
     bastionJumps: nextValue.bastionJumps ?? null,
     bastionIdentityFile: nextValue.bastionIdentityFile ?? null,
     bastionPasswordEnv: nextValue.bastionPasswordEnv ?? null,
+    bastionPasswordsEnv: nextValue.bastionPasswordsEnv ?? null,
     bastionPasswordAuth: Boolean(nextValue.bastionPasswordAuth),
     bastionTargetHost: nextValue.bastionTargetHost ?? null,
     bastionTargetPort: nextValue.bastionTargetPort ?? null,
@@ -142,6 +149,7 @@ export async function saveConfig(config, patch) {
     bastionStrictHostKeyChecking: Boolean(
       nextValue.bastionStrictHostKeyChecking,
     ),
+    tlsRejectUnauthorized: nextValue.tlsRejectUnauthorized ?? null,
   });
 
   return nextValue;

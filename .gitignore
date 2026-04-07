@@ -27,3 +27,12 @@ build/
 
 # Zone.Identifier files (Windows)
 *:Zone.Identifier
+
+# TLS certificates and private keys
+*.pem
+*.key
+*.crt
+*.cert
+*.p12
+*.pfx
+*.ca-bundle

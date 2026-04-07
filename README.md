@@ -17,6 +17,8 @@ It supports:
 - `username/password auth` with cached access-token and refresh-token handling
 - `bastion and multi-hop SSH` access for restricted XCO deployments
 - `opt-in bastion password auth` when key-based SSH is unavailable
+- `per-hop bastion passwords` for multi-jump chains where each hop has a different password
+- `TLS certificate bypass` for corporate instances with self-signed certificates
 - `readonly mode` that only exposes read operations
 - `patch-version mapping` so official `x.y.z` releases reuse the corresponding `x.y.0` API docs
 - `spec source selection` so setup can use official docs, instance docs, or auto fallback
@@ -282,11 +284,14 @@ Environment variables:
 - `XCO_BASTION_PASSWORD`
 - `XCO_BASTION_PASSWORD_ENV`
 - `XCO_BASTION_PASSWORD_AUTH`
+- `XCO_BASTION_PASSWORDS` — comma-separated per-hop passwords (one per jump host, in order)
+- `XCO_BASTION_PASSWORDS_ENV` — comma-separated env var names for per-hop passwords
 - `XCO_BASTION_TARGET_HOST`
 - `XCO_BASTION_TARGET_PORT`
 - `XCO_BASTION_LOCAL_PORT`
 - `XCO_BASTION_BIND_HOST`
 - `XCO_BASTION_STRICT_HOST_KEY_CHECKING`
+- `XCO_TLS_REJECT_UNAUTHORIZED` — set to `0` to skip TLS certificate validation (for self-signed certs)
 - `XCO_HTTP_HOST`
 - `XCO_HTTP_PORT`
 

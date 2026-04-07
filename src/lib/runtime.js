@@ -112,6 +112,11 @@ const META_TOOLS = [
           description:
             "Optional environment variable name to read the bastion password from.",
         },
+        bastionPasswordsEnv: {
+          type: "string",
+          description:
+            "Optional comma-separated environment variable names for per-hop bastion passwords (one per jump host in order).",
+        },
         bastionTargetHost: {
           type: "string",
           description:
@@ -136,6 +141,11 @@ const META_TOOLS = [
           type: "boolean",
           description:
             "Optional SSH StrictHostKeyChecking setting for the bastion tunnel.",
+        },
+        tlsRejectUnauthorized: {
+          type: "string",
+          description:
+            'Set to "0" to disable TLS certificate validation (for corporate XCO instances with self-signed certs).',
         },
         overwrite: {
           type: "boolean",
@@ -227,6 +237,11 @@ const META_TOOLS = [
           description:
             "Optional environment variable name to read the bastion password from.",
         },
+        bastionPasswordsEnv: {
+          type: "string",
+          description:
+            "Optional comma-separated environment variable names for per-hop bastion passwords (one per jump host in order).",
+        },
         bastionTargetHost: {
           type: "string",
           description:
@@ -251,6 +266,11 @@ const META_TOOLS = [
           type: "boolean",
           description:
             "Optional SSH StrictHostKeyChecking setting for the bastion tunnel.",
+        },
+        tlsRejectUnauthorized: {
+          type: "string",
+          description:
+            'Set to "0" to disable TLS certificate validation (for corporate XCO instances with self-signed certs).',
         },
       },
       required: ["version"],
@@ -475,12 +495,15 @@ function buildAuthConfigPatch(input = {}, config = {}) {
     bastionPasswordAuth:
       input.bastionPasswordAuth ?? config.bastionPasswordAuth,
     bastionPasswordEnv: input.bastionPasswordEnv ?? config.bastionPasswordEnv,
+    bastionPasswordsEnv: input.bastionPasswordsEnv ?? config.bastionPasswordsEnv,
     bastionTargetHost: input.bastionTargetHost ?? config.bastionTargetHost,
     bastionTargetPort: input.bastionTargetPort ?? config.bastionTargetPort,
     bastionLocalPort: input.bastionLocalPort ?? config.bastionLocalPort,
     bastionBindHost: input.bastionBindHost ?? config.bastionBindHost,
     bastionStrictHostKeyChecking:
       input.bastionStrictHostKeyChecking ?? config.bastionStrictHostKeyChecking,
+    tlsRejectUnauthorized:
+      input.tlsRejectUnauthorized ?? config.tlsRejectUnauthorized,
   };
 }
 
@@ -627,6 +650,8 @@ export class XcoRuntime {
       bastionJumps: getTunnelSettings(this.config).jumps,
       bastionPasswordAuth: Boolean(this.config.bastionPasswordAuth),
       bastionPasswordEnvConfigured: Boolean(this.config.bastionPasswordEnv),
+      bastionPasswordsEnvConfigured: Boolean(this.config.bastionPasswordsEnv),
+      tlsRejectUnauthorized: this.config.tlsRejectUnauthorized,
       auth: authStatus,
       manualSpecsDir: this.config.manualSpecsDir,
       xcoHome: this.config.xcoHome,
@@ -1313,6 +1338,17 @@ XcoRuntime.instances = new Set();
 
 export async function createRuntime(options = {}) {
   const config = await loadConfig(options);
+
+  // Apply TLS certificate validation setting
+  if (
+    config.tlsRejectUnauthorized !== null &&
+    config.tlsRejectUnauthorized !== undefined
+  ) {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = String(
+      config.tlsRejectUnauthorized,
+    );
+  }
+
   const runtime = new XcoRuntime(config, options);
   await runtime.reload();
   return runtime;
