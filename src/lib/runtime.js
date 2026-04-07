@@ -561,6 +561,7 @@ export class XcoRuntime {
     this.operationIdMap = new Map();
     this.sessionCache = new Map();
     this.tunnels = new Map();
+    this.pendingTunnels = new Map();
     this.installCleanupHandlers();
   }
 
@@ -821,6 +822,15 @@ export class XcoRuntime {
       return url.toString();
     }
 
+    // Serialize concurrent tunnel startups for the same key
+    if (this.pendingTunnels.has(tunnelKey)) {
+      const tunnel = await this.pendingTunnels.get(tunnelKey);
+      const url = new URL(baseUrl);
+      url.hostname = tunnel.bindHost;
+      url.port = String(tunnel.localPort);
+      return url.toString();
+    }
+
     const onEvent = options.onEvent ?? (() => {});
     onEvent({
       level: "info",
@@ -828,13 +838,20 @@ export class XcoRuntime {
       message: `Opening SSH tunnel through ${settings.jumps.join(" -> ")}`,
     });
 
-    const tunnel = await startSshTunnel(baseUrl, settings);
-    this.tunnels.set(tunnelKey, tunnel);
+    const tunnelPromise = startSshTunnel(baseUrl, settings);
+    this.pendingTunnels.set(tunnelKey, tunnelPromise);
 
-    const url = new URL(baseUrl);
-    url.hostname = tunnel.bindHost;
-    url.port = String(tunnel.localPort);
-    return url.toString();
+    try {
+      const tunnel = await tunnelPromise;
+      this.tunnels.set(tunnelKey, tunnel);
+
+      const url = new URL(baseUrl);
+      url.hostname = tunnel.bindHost;
+      url.port = String(tunnel.localPort);
+      return url.toString();
+    } finally {
+      this.pendingTunnels.delete(tunnelKey);
+    }
   }
 
   async resolveRequestDocsUrl(overrides = {}, options = {}) {
@@ -918,8 +935,8 @@ export class XcoRuntime {
       username: session.username,
     });
 
-    this.sessionCache.set(key, session);
     await writeSession(this.config.sessionPath, key, session);
+    this.sessionCache.set(key, session);
     return session;
   }
 

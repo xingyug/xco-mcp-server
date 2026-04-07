@@ -111,7 +111,7 @@ node ./src/cli.js tools
 Call one generated tool:
 
 ```bash
-node ./src/cli.js call tenant__gettenants --json '{}'
+node ./src/cli.js call tenant_service__gettenants --json '{}'
 ```
 
 Send a raw request:
@@ -183,7 +183,7 @@ Generated tools use the naming pattern:
 Example:
 
 ```text
-tenant__gettenants
+tenant_service__gettenants
 ```
 
 ## HTTP + SSE Usage

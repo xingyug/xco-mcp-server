@@ -2,7 +2,7 @@ FROM node:22-alpine
 
 LABEL org.opencontainers.image.source="https://github.com/xingyug/xco-mcp-server" \
       org.opencontainers.image.description="MCP/CLI/HTTP server for ExtremeCloud Orchestrator" \
-      org.opencontainers.image.licenses="MIT"
+      org.opencontainers.image.licenses="Apache-2.0"
 
 WORKDIR /app
 

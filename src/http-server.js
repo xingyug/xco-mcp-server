@@ -76,23 +76,35 @@ async function main() {
     }
 
     if (req.method === "GET" && url.pathname === "/v1/tools") {
-      sendJson(res, 200, runtime.getTools());
+      try {
+        sendJson(res, 200, runtime.getTools());
+      } catch (error) {
+        sendJson(res, 500, { error: error.message });
+      }
       return;
     }
 
     if (req.method === "GET" && url.pathname === "/v1/bundle") {
-      sendJson(res, 200, await runtime.describeBundle());
+      try {
+        sendJson(res, 200, await runtime.describeBundle());
+      } catch (error) {
+        sendJson(res, 500, { error: error.message });
+      }
       return;
     }
 
     if (req.method === "GET" && url.pathname === "/v1/versions") {
-      sendJson(
-        res,
-        200,
-        await runtime.callMetaTool("xco_list_versions", {
-          remote: url.searchParams.get("remote") === "1",
-        }),
-      );
+      try {
+        sendJson(
+          res,
+          200,
+          await runtime.callMetaTool("xco_list_versions", {
+            remote: url.searchParams.get("remote") === "1",
+          }),
+        );
+      } catch (error) {
+        sendJson(res, 500, { error: error.message });
+      }
       return;
     }
 

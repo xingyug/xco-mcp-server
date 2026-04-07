@@ -131,10 +131,10 @@ node ./src/cli.js describe
 Run one safe generated read call:
 
 ```bash
-node ./src/cli.js call tenant__gethealth --json '{}'
+node ./src/cli.js call tenant_service__gethealth --json '{}'
 ```
 
-If your chosen version does not expose `tenant__gethealth`, run `node ./src/cli.js tools` and pick any safe `GET` operation from the generated list.
+If your chosen version does not expose `tenant_service__gethealth`, run `node ./src/cli.js tools` and pick any safe `GET` operation from the generated list.
 
 ## 7. Start The MCP Server
 
