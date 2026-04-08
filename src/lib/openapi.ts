@@ -234,11 +234,17 @@ function buildInputSchema(document: OpenApiDocument, pathItem: PathItem, operati
 
 function operationRequiresAuth(document: OpenApiDocument, operation: OpenApiOperation): boolean {
   const security = operation.security ?? document.security;
-  if (!Array.isArray(security)) {
-    return false;
+  if (Array.isArray(security)) {
+    return security.length > 0;
   }
 
-  return security.length > 0;
+  // If the spec defines security schemes but never references them in a
+  // top-level or operation-level `security` array, assume auth is required.
+  const schemes =
+    (document as Record<string, unknown>).securityDefinitions ??
+    ((document as Record<string, unknown>).components as Record<string, unknown> | undefined)
+      ?.securitySchemes;
+  return schemes != null && typeof schemes === "object" && Object.keys(schemes).length > 0;
 }
 
 function describeOperation(

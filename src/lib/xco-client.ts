@@ -123,6 +123,13 @@ export async function executeOperation(
   }
 
   ensureObject(args, "Tool arguments");
+
+  for (const param of operation.parameters) {
+    if (param.required && (args[param.name] === undefined || args[param.name] === null)) {
+      throw new Error(`Missing required parameter "${param.name}".`);
+    }
+  }
+
   const url = buildUrl(baseUrl, operation, args);
   const headers = normalizeHeaders({
     ...args._headers,

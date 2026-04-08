@@ -21,6 +21,7 @@ import {
   ensureObject,
   toAbsolutePath,
   uniqueBy,
+  normalizeKeys,
 } from "../src/lib/utils.js";
 
 void describe("slugify", () => {
@@ -266,5 +267,36 @@ void describe("uniqueBy", () => {
     assert.equal(result.length, 2);
     assert.equal(result[0].v, 1);
     assert.equal(result[1].v, 2);
+  });
+});
+
+void describe("normalizeKeys", () => {
+  void it("converts snake_case to camelCase", () => {
+    const result = normalizeKeys({ base_url: "http://x", service_prefix: "/v1" });
+    assert.deepEqual(result, { baseUrl: "http://x", servicePrefix: "/v1" });
+  });
+
+  void it("passes through existing camelCase keys", () => {
+    const result = normalizeKeys({ baseUrl: "http://x", simpleKey: 42 });
+    assert.deepEqual(result, { baseUrl: "http://x", simpleKey: 42 });
+  });
+
+  void it("camelCase wins when both forms exist", () => {
+    const result = normalizeKeys({ base_url: "snake", baseUrl: "camel" });
+    assert.equal(result.baseUrl, "camel");
+  });
+
+  void it("handles keys with no underscores", () => {
+    const result = normalizeKeys({ name: "test", count: 5 });
+    assert.deepEqual(result, { name: "test", count: 5 });
+  });
+
+  void it("handles empty object", () => {
+    assert.deepEqual(normalizeKeys({}), {});
+  });
+
+  void it("handles multiple underscores", () => {
+    const result = normalizeKeys({ tls_reject_unauthorized: false });
+    assert.equal(result.tlsRejectUnauthorized, false);
   });
 });

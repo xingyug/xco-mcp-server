@@ -48,7 +48,7 @@ import {
   startSshTunnel,
   stopSshTunnel,
 } from "./tunnel.js";
-import { buildSupportDocsUrl, fileExists, HTTP_METHODS } from "./utils.js";
+import { buildSupportDocsUrl, fileExists, HTTP_METHODS, normalizeKeys } from "./utils.js";
 
 const META_TOOLS = [
   {
@@ -1252,6 +1252,8 @@ export class XcoRuntime {
   }
 
   async callMetaTool(name: string, input: ToolInput, options: RuntimeCallOptions = {}): Promise<unknown> {
+    input = normalizeKeys(input as Record<string, unknown>) as ToolInput;
+
     if (name === "xco_setup_version") {
       return await this.setupVersion(input, options);
     }

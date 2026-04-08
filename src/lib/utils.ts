@@ -205,3 +205,21 @@ export function uniqueBy<T>(items: T[], getKey: (item: T) => string): T[] {
     return true;
   });
 }
+
+/**
+ * Convert snake_case keys to camelCase.  Keys that are already camelCase pass
+ * through unchanged.  When both forms exist (e.g. `base_url` and `baseUrl`),
+ * the explicit camelCase value wins.
+ */
+export function normalizeKeys(input: Record<string, unknown>): Record<string, unknown> {
+  const output: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(input)) {
+    const camel = key.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+    if (camel !== key && camel in output) {
+      // An explicit camelCase value was already set — don't overwrite.
+      continue;
+    }
+    output[camel] = value;
+  }
+  return output;
+}
